@@ -645,6 +645,7 @@ while running:
                     btn_easy.press()
                     pygame.display.update()
                     pygame.time.wait(120)
+                    mode = "ai"
                     difficulty = "easy"
                     play_music(music_easy)
                     state = "game"
@@ -653,6 +654,7 @@ while running:
                     btn_med.press()
                     pygame.display.update()
                     pygame.time.wait(120)
+                    mode = "ai"
                     difficulty = "medium"
                     play_music(music_medium)
                     state = "game"
@@ -661,6 +663,7 @@ while running:
                     btn_hard.press()
                     pygame.display.update()
                     pygame.time.wait(120)
+                    mode = "ai"
                     difficulty = "hard"
                     play_music(music_hard)
                     state = "game"
@@ -720,6 +723,8 @@ while running:
                         btn_ai.press()
                         pygame.display.update()
                         pygame.time.wait(120)
+                        # гарантируем режим AI при входе в выбор сложности
+                        mode = "ai"
                         state = "difficulty"
                     elif menu_index == 1:
                         btn_pvp.press()
@@ -746,6 +751,8 @@ while running:
                         ch = btn_easy.press()
                         pygame.display.update()
                         fade_while_channel_busy(ch)
+                        # явно переключаем режим на AI при старте игры из меню сложности
+                        mode = "ai"
                         difficulty = "easy"
                         play_music(music_easy)
                         state = "game"
@@ -753,6 +760,7 @@ while running:
                         ch = btn_med.press()
                         pygame.display.update()
                         fade_while_channel_busy(ch)
+                        mode = "ai"
                         difficulty = "medium"
                         play_music(music_medium)
                         state = "game"
@@ -760,6 +768,7 @@ while running:
                         ch = btn_hard.press()
                         pygame.display.update()
                         fade_while_channel_busy(ch)
+                        mode = "ai"
                         difficulty = "hard"
                         play_music(music_hard)
                         state = "game"
