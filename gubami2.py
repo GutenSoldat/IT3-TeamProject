@@ -2,6 +2,8 @@ import pygame
 from pygame.locals import *
 import random
 import math
+import os
+import glob
 
 pygame.init()
 pygame.mixer.init()
@@ -10,7 +12,7 @@ pygame.mixer.init()
 screen_width = 600
 screen_height = 500
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Pong Evolution')
+pygame.display.set_caption('Hotline Pong')
 icon = pygame.image.load('welllwelllwelll8.jpg')
 pygame.display.set_icon(icon)
 
@@ -46,6 +48,12 @@ lose_sound = pygame.mixer.Sound('GOAL.mp3')
 hover_sound = pygame.mixer.Sound('zvuk-perezariadki-ak47.mp3')
 hover_channel = None
 
+# флаг — последнее взаимодействие было с клавиатуры (используется для звука наведения)
+last_input_was_keyboard = False
+
+# добавляем глобальный click_sound и используем его в Button.press
+click_sound = pygame.mixer.Sound('odinochn-vystrel-aks.mp3')
+
 # -------------------- ФУНКЦИИ --------------------
 def play_music(track):
     pygame.mixer.music.load(track)
@@ -65,6 +73,170 @@ def draw_board():
     screen.fill(background)
     pygame.draw.line(screen, white, (0, 50), (screen_width, 50))
 
+def fade_while_channel_busy(channel):
+    """Показывает плавное затемнение экрана пока играет channel (или хотя бы длительность click_sound)."""
+    start = pygame.time.get_ticks()
+    duration_ms = int(click_sound.get_length() * 1000)
+    overlay = pygame.Surface((screen_width, screen_height))
+    overlay.fill((0, 0, 0))
+    clock = pygame.time.Clock()
+
+    # Если channel == None — всё равно делаем затемнение по длине click_sound
+    while (channel is not None and channel.get_busy()) or (pygame.time.get_ticks() - start < duration_ms):
+        elapsed = pygame.time.get_ticks() - start
+        progress = min(1.0, elapsed / duration_ms) if duration_ms > 0 else 1.0
+        alpha = int(progress * 255)
+        overlay.set_alpha(alpha)
+        # Наложим поверх текущего экрана
+        screen.blit(overlay, (0, 0))
+        pygame.display.update()
+        clock.tick(60)
+    # Гарантируем полностью чёрный финальный кадр перед сменой состояния
+    overlay.set_alpha(255)
+    screen.blit(overlay, (0, 0))
+    pygame.display.update()
+
+def load_background_frames(folder):
+    frames = []
+    if not os.path.isdir(folder):
+        return frames
+    names = sorted(os.listdir(folder))
+    for name in names:
+        path = os.path.join(folder, name)
+        try:
+            img = pygame.image.load(path).convert()
+            img = pygame.transform.scale(img, (screen_width, screen_height))
+            frames.append(img)
+        except Exception:
+            continue
+    return frames
+
+def load_sequence_frames(folder, prefix, start, end, digits=3, ext='.jpg'):
+    frames = []
+    for i in range(start, end + 1):
+        name = f"{prefix}{i:0{digits}d}{ext}"
+        path = os.path.join(folder, name)
+        if not os.path.isfile(path):
+            # пропускаем отсутствующие файлы, но продолжаем
+            continue
+        try:
+            img = pygame.image.load(path).convert_alpha()
+            img = pygame.transform.scale(img, (screen_width, screen_height))
+            frames.append(img)
+        except Exception:
+            continue
+    return frames
+
+def run_intro():
+    # используем полный путь к папке с кадрами на вашем ПК
+    frames = load_background_frames(r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\Background')
+    try:
+        intro_sound = pygame.mixer.Sound('why-did-you-make-me-do-this-made-with-Voicemod.mp3')
+    except Exception:
+        intro_sound = None
+
+    clock = pygame.time.Clock()
+    start = pygame.time.get_ticks()
+
+    # параметры: fade-in 2.5s, звук стартует через 1s, fade-out 4s
+    fade_in_ms = 2000
+    sound_start_delay = 1000
+    fade_out_ms = 1000
+    frame_interval = 100  # ms между кадрами анимации
+
+    last_frame_time = start
+    fi = 0
+
+    ch = None
+    sound_started = False
+    sound_start_time = 0
+    sound_length_ms = int(intro_sound.get_length() * 1000) if intro_sound else 3000
+
+    running_intro = True
+    while running_intro:
+        for ev in pygame.event.get():
+            if ev.type == QUIT:
+                pygame.quit()
+                raise SystemExit
+
+        now = pygame.time.get_ticks()
+        elapsed = now - start
+
+        # обновляем индекс фрейма анимации (анимация продолжается всегда)
+        if frames and (now - last_frame_time) >= frame_interval:
+            fi = (fi + 1) % len(frames)
+            last_frame_time = now
+
+        # отрисовка текущего фрейма
+        if frames:
+            screen.blit(frames[fi], (0, 0))
+        else:
+            screen.fill(background)
+
+        # fade-in: overlay alpha от 255 -> 0 за fade_in_ms
+        if elapsed < fade_in_ms:
+            progress = elapsed / fade_in_ms
+            alpha = int(255 * (1.0 - progress))
+        else:
+            alpha = 0
+
+        overlay = pygame.Surface((screen_width, screen_height))
+        overlay.fill((0, 0, 0))
+        overlay.set_alpha(alpha)
+        screen.blit(overlay, (0, 0))
+        pygame.display.update()
+        clock.tick(60)
+
+        # Запуск звука после задержки sound_start_delay (один раз)
+        if not sound_started and elapsed >= sound_start_delay:
+            if intro_sound:
+                ch = intro_sound.play()
+                sound_start_time = pygame.time.get_ticks()
+            else:
+                sound_start_time = pygame.time.get_ticks()
+            sound_started = True
+
+        # Если звук стартовал — ждём его окончания, затем делаем fade-out (анимация продолжается)
+        if sound_started:
+            if ch:
+                sound_done = not ch.get_busy()
+            else:
+                sound_done = (pygame.time.get_ticks() - sound_start_time) >= sound_length_ms
+
+            if sound_done:
+                fade_start = pygame.time.get_ticks()
+                # подготовим overlay для fade-out
+                out_overlay = pygame.Surface((screen_width, screen_height))
+                out_overlay.fill((0, 0, 0))
+                while True:
+                    for ev in pygame.event.get():
+                        if ev.type == QUIT:
+                            pygame.quit()
+                            raise SystemExit
+
+                    tnow = pygame.time.get_ticks()
+
+                    # продолжаем анимацию кадров во время fade-out
+                    if frames and (tnow - last_frame_time) >= frame_interval:
+                        fi = (fi + 1) % len(frames)
+                        last_frame_time = tnow
+
+                    if frames:
+                        screen.blit(frames[fi], (0, 0))
+                    else:
+                        screen.fill(background)
+
+                    t_elapsed = tnow - fade_start
+                    progress2 = min(1.0, t_elapsed / fade_out_ms)
+                    out_overlay.set_alpha(int(progress2 * 255))
+                    screen.blit(out_overlay, (0, 0))
+                    pygame.display.update()
+                    clock.tick(60)
+
+                    if progress2 >= 1.0:
+                        running_intro = False
+                        break
+
 # -------------------- КЛАССЫ --------------------
 class Button:
     def __init__(self, x, y, w, h, text):
@@ -75,48 +247,85 @@ class Button:
         self.pressed_until = 0  # ms, время окончания эффекта нажатия
         self.press_duration = 120  # длительность эффекта (ms)
 
+        # плавный переход цвета
+        self.current_color = white
+        self.target_color = white
+        self.color_smooth = 0.12  # 0..1 - скорость интерполяции (чем больше, тем быстрее)
+
+        # джиттер в спокойном состоянии
+        self.jitter_phase = random.random() * math.pi * 2
+        self.jitter_amp = 2.0  # пикселей
+        self.jitter_freq = 3.0  # кол-во колебаний в секунду
+
     def press(self, duration=None):
         # Запуск визуального эффекта нажатия и проигрыш клика
         if duration is None:
             duration = self.press_duration
         self.pressed_until = pygame.time.get_ticks() + duration
         try:
-            pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+            # играем заранее загруженный click_sound и возвращаем канал
+            ch = click_sound.play()
+            if ch:
+                ch.set_volume(0.5)
+            return ch
         except Exception:
-            pass
+            return None
 
     # добавлен параметр highlight для подсветки при навигации клавиатурой
     def draw(self, highlight=False):
-        mouse_pos = pygame.mouse.get_pos()
-        hovered = self.rect.collidepoint(mouse_pos)
-        # подсветка либо при наведении мыши, либо при выборе клавиатурой
-        active = hovered or highlight
+        # теперь игнорируем положение мыши — активность определяется только параметром highlight
+        active = bool(highlight)
         now = pygame.time.get_ticks()
         pressed = now < self.pressed_until
+
+        # если активна подсветка — целевой цвет плавно меняется по RGB-циклу (эффект RGB-подсветки)
+        if active:
+            tsec = now / 1000.0
+            freq = 1.0  # частота смены цветов (Hz) — можно увеличить для быстрой смены
+            # фазовый сдвиг для R/G/B чтобы получить RGB-циклирование
+            r = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 0.0)))
+            g = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 2.0)))
+            b = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 4.0)))
+            self.target_color = (r, g, b)
+        else:
+            # в спокойном состоянии возвращаемся к белому
+            self.target_color = white
+
+        # интерполируем текущий цвет к целевому (плавный переход)
+        def lerp_color(a, b, t):
+            return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+        self.current_color = lerp_color(self.current_color, self.target_color, self.color_smooth)
+
+        # вычисляем джиттер (только в спокойном состоянии, когда не активна и не нажата)
+        jitter_x = jitter_y = 0
+        if not active and not pressed:
+            tsec = now / 1000.0
+            jitter_x = math.sin(tsec * self.jitter_freq + self.jitter_phase) * self.jitter_amp
+            # мелкий вертикальный сдвиг с меньшей амплитудой
+            jitter_y = math.sin(tsec * (self.jitter_freq * 1.3) + self.jitter_phase * 0.7) * (self.jitter_amp * 0.6)
 
         # 3D offset: тень смещена, при нажатии тень меньше и прямоугольник смещён вниз-вправо
         shadow_offset = (6, 6) if not pressed else (2, 2)
         press_offset = (0, 0) if not pressed else (2, 2)
 
-        # отрисовка тени
-        shadow_rect = self.rect.move(shadow_offset)
+        # отрисовка тени (учитываем джиттер)
+        shadow_rect = self.rect.move(shadow_offset[0] + int(jitter_x), shadow_offset[1] + int(jitter_y))
         pygame.draw.rect(screen, (30, 30, 30), shadow_rect, border_radius=12)
 
-        # основной цвет (ярче при активном)
-        base_color = gray if active else white
+        # основной цвет (берём текущий интерполированный)
+        base_color = self.current_color
         # при нажатии немного затемняем
         if pressed:
             base_color = tuple(max(0, c - 30) for c in base_color)
 
-        draw_rect = self.rect.move(press_offset)
+        # применяем press_offset + джиттер
+        draw_rect = self.rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
         pygame.draw.rect(screen, base_color, draw_rect, border_radius=10)
 
         # верхняя/левая подсветка и нижняя/правая тень для объёмного вида
-        # подсветка сверху-лева (светлее)
         highlight_color = tuple(min(255, c + 40) for c in base_color)
         pygame.draw.line(screen, highlight_color, (draw_rect.left+4, draw_rect.top+2), (draw_rect.right-4, draw_rect.top+2), 3)
         pygame.draw.line(screen, highlight_color, (draw_rect.left+2, draw_rect.top+4), (draw_rect.left+2, draw_rect.bottom-4), 3)
-        # тёмная линия снизу-справа
         dark_color = tuple(max(0, c - 60) for c in base_color)
         pygame.draw.line(screen, dark_color, (draw_rect.left+4, draw_rect.bottom-2), (draw_rect.right-4, draw_rect.bottom-2), 3)
         pygame.draw.line(screen, dark_color, (draw_rect.right-2, draw_rect.top+4), (draw_rect.right-2, draw_rect.bottom-4), 3)
@@ -124,18 +333,21 @@ class Button:
         # текст — сдвигаем при нажатии для ощущения глубины
         text_img = menu_font.render(self.text, True, black)
         text_rect = text_img.get_rect(center=draw_rect.center)
-        text_rect = text_rect.move(press_offset)
+        text_rect = text_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
         screen.blit(text_img, text_rect)
 
-        # Проигрываем звук один раз при переходе в состояние active (смене цвета)
+        # Проигрываем звук только при переходе в состояние active через highlight (клавиатура)
         global hover_channel
-        if active and not self.active_last:
-            if hover_channel is None or not hover_channel.get_busy():
-                hover_channel = hover_sound.play()
-                if hover_channel:
-                    hover_channel.set_volume(0.5)
+        if active and not self.active_last and last_input_was_keyboard:
+            try:
+                if hover_channel is None or not hover_channel.get_busy():
+                    hover_channel = hover_sound.play()
+                    if hover_channel:
+                        hover_channel.set_volume(0.5)
+            except Exception:
+                pass
+
         # обновляем состояния для следующего кадра
-        self.hovered_last = hovered
         self.active_last = active
 
     def is_clicked(self, pos):
@@ -324,9 +536,17 @@ btn_easy = Button(200, 200, 200, 50, "Easy")
 btn_med = Button(200, 270, 200, 50, "Medium")
 btn_hard = Button(200, 340, 200, 50, "Hard")
 
+# кнопка Back для меню выбора сложности — справа снизу, 15px от края
+btn_back = Button(screen_width - 200 - 15, screen_height - 50 - 15, 200, 50, "Back")
+
+# кнопки, которые отображаются при "Press any key to continue..."
+btn_back_pause = Button(screen_width//2 - 200 - 10, screen_height//2 + 60, 200, 50, "Back")
+btn_exit_pause = Button(screen_width//2 + 10, screen_height//2 + 60, 200, 50, "Exit")
+
 # индексы для навигации по меню и выбору сложности
 menu_index = 0
 diff_index = 0
+pause_index = 0  # 0 = Back, 1 = Exit (на экране ожидания)
 
 player_paddle = Paddle(20, screen_height // 2)
 cpu_paddle = Paddle(screen_width - 40, screen_height // 2)
@@ -337,7 +557,35 @@ wall_timer = booster_timer = 0
 game_timer = 0
 mode = "ai"
 
+# очередная генерация стен: список типов, таймер спавна и длительность одной стены
+pending_wall_types = []          # очередь типов стен, которые нужно по очереди заспавнить
+last_wall_spawn_time = 0         # время последнего спавна из очереди (ms)
+wall_spawn_interval = 1500       # интервал между спавнами в очереди (ms) — 1.5 с
+wall_lifetime = 1500             # жизнь каждой стены (ms) — 1.5 с
+
+run_intro()
 play_music(music_menu)
+
+# загружаем кадры для фона основного меню
+backmain_frames = load_sequence_frames(
+    r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\BackMainMenu',
+    prefix='hotline-miami-background_',
+    start=0, end=48, digits=3, ext='.jpg'
+)
+backmain_frame_index = 0
+backmain_last_frame_time = pygame.time.get_ticks()
+# интервал между кадрами в миллисекундах (40 ms ~= 25 FPS). Поменяйте при желании.
+backmain_frame_interval = 40
+
+# Добавляем загрузку кадров для фона меню выбора сложности (63 кадра: 000..062)
+backdiff_frames = load_sequence_frames(
+    r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\BackDifficultyMenu',
+    prefix='miamibeach_',
+    start=0, end=62, digits=3, ext='.jpg'
+)
+backdiff_frame_index = 0
+backdiff_last_frame_time = pygame.time.get_ticks()
+backdiff_frame_interval = 40
 
 running = True
 while running:
@@ -348,14 +596,37 @@ while running:
         if event.type == QUIT:
             running = False
         if event.type == MOUSEBUTTONDOWN:
-            pos = event.pos
+            # Игнорируем клики: навигация и выбор — только клавиатурой
+            last_input_was_keyboard = False
+            # не обрабатываем pos и не вызываем is_clicked — клики не должны влиять на кнопки
+            continue
+
+            # Если сейчас показывается экран ожидания после гола — обрабатываем Back/Exit
+            if waiting_for_key:
+                if btn_back_pause.is_clicked(pos):
+                    btn_back_pause.press()
+                    pygame.display.update()
+                    pygame.time.wait(120)
+                    # возвращаемся в главное меню, сбрасываем счёт и флаги
+                    state = "menu"
+                    player_score = cpu_score = 0
+                    play_music(music_menu)
+                    waiting_for_key = False
+                    continue
+                if btn_exit_pause.is_clicked(pos):
+                    btn_exit_pause.press()
+                    pygame.display.update()
+                    pygame.time.wait(120)
+                    running = False
+                    continue
+
             if state == "menu":
                 if btn_ai.is_clicked(pos):
                     btn_ai.press()
                     pygame.display.update()
                     pygame.time.wait(120)
                     state = "difficulty"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_pvp.is_clicked(pos):
                     btn_pvp.press()
                     pygame.display.update()
@@ -363,7 +634,7 @@ while running:
                     mode = "pvp"
                     state = "game"
                     play_music(music_pvp)
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_exit.is_clicked(pos):
                     btn_exit.press()
                     pygame.display.update()
@@ -377,7 +648,7 @@ while running:
                     difficulty = "easy"
                     play_music(music_easy)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_med.is_clicked(pos):
                     btn_med.press()
                     pygame.display.update()
@@ -385,7 +656,7 @@ while running:
                     difficulty = "medium"
                     play_music(music_medium)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_hard.is_clicked(pos):
                     btn_hard.press()
                     pygame.display.update()
@@ -393,15 +664,50 @@ while running:
                     difficulty = "hard"
                     play_music(music_hard)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
 
-        # Если ждём нажатие клавиши после гола
-        if waiting_for_key:
-            if event.type == KEYDOWN:
+        # Если ждём нажатия клавиши после гола — обрабатываем специально:
+        if waiting_for_key and event.type == KEYDOWN:
+            # продолжение игры — только по пробелу
+            if event.key == K_SPACE:
                 waiting_for_key = False
+                # скрываем подсветку кнопок
+                last_input_was_keyboard = True
+            else:
+                # навигация между Back / Exit клавишами A/D
+                if event.key == K_a:
+                    pause_index = (pause_index - 1) % 2
+                    last_input_was_keyboard = True
+                elif event.key == K_d:
+                    pause_index = (pause_index + 1) % 2
+                    last_input_was_keyboard = True
+                # Enter — активировать выделенную кнопку
+                elif event.key in (K_RETURN, K_KP_ENTER):
+                    last_input_was_keyboard = True
+                    if pause_index == 0:
+                        ch = btn_back_pause.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
+                        # Back -> в главное меню
+                        state = "menu"
+                        player_score = cpu_score = 0
+                        play_music(music_menu)
+                        waiting_for_key = False
+                    else:
+                        ch = btn_exit_pause.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
+                        # Exit
+                        running = False
+            # пропускаем дальнейшую обработку этого KEYDOWN
+            continue
 
         # обработка навигации клавиатурой (W/S и Enter) — только когда не ждём продолжения
         if event.type == KEYDOWN and not waiting_for_key:
+            # помечаем, что последнее взаимодействие — клавиатура
+            # (звук наведения будет воспроизводиться только если этот флаг True)
+            last_input_was_keyboard = True
+
             # навигация по главному меню
             if state == "menu":
                 if event.key in (K_w, K_UP):
@@ -430,36 +736,96 @@ while running:
 
             # навигация по выбору сложности
             elif state == "difficulty":
+                # теперь diff_index может быть 0..3, где 3 = Back
                 if event.key in (K_w, K_UP):
-                    diff_index = (diff_index - 1) % 3
+                    diff_index = (diff_index - 1) % 4
                 elif event.key in (K_s, K_DOWN):
-                    diff_index = (diff_index + 1) % 3
+                    diff_index = (diff_index + 1) % 4
                 elif event.key in (K_RETURN, K_KP_ENTER):
                     if diff_index == 0:
+                        ch = btn_easy.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
                         difficulty = "easy"
                         play_music(music_easy)
                         state = "game"
-                        pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
                     elif diff_index == 1:
+                        ch = btn_med.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
                         difficulty = "medium"
                         play_music(music_medium)
                         state = "game"
-                        pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
                     elif diff_index == 2:
+                        ch = btn_hard.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
                         difficulty = "hard"
                         play_music(music_hard)
                         state = "game"
-                        pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    elif diff_index == 3:
+                        # Back через клавиатуру
+                        ch = btn_back.press()
+                        pygame.display.update()
+                        fade_while_channel_busy(ch)
+                        state = "menu"
+                        pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
 
     # -------------------- МЕНЮ --------------------
     if state == "menu":
+        # отрисовка анимированного фона для главного меню (если кадры загружены)
+        if backmain_frames:
+            now = pygame.time.get_ticks()
+            if now - backmain_last_frame_time >= backmain_frame_interval:
+                backmain_frame_index = (backmain_frame_index + 1) % len(backmain_frames)
+                backmain_last_frame_time = now
+            screen.blit(backmain_frames[backmain_frame_index], (0, 0))
+        else:
+            # fallback — обычный фон
+            screen.fill(background)
+
         menu_timer += 1
         pulse_offset = math.sin(menu_timer * 0.05) * menu_pulse_amplitude
         swing_angle = math.sin(menu_timer * 0.05) * menu_swing_angle
-        text_img = font_big.render("PONG", True, white)
-        text_rect = text_img.get_rect(center=(300, 120 + pulse_offset))
-        rotated_img = pygame.transform.rotate(text_img, swing_angle)
-        rotated_rect = rotated_img.get_rect(center=text_rect.center)
+        # Статичная белая надпись убрана — используется по-буквенная RGB-анимация далее
+        # text_img = font_big.render("PONG", True, white)
+        # text_rect = text_img.get_rect(center=(300, 120 + pulse_offset))
+        # rotated_img = pygame.transform.rotate(text_img, swing_angle)
+        # rotated_rect = rotated_img.get_rect(center=text_rect.center)
+        # screen.blit(rotated_img, rotated_rect)
+
+        # заголовок "PONG" — по-буквенная RGB-переливка с чёрным контуром
+        title = "HOTLINE PONG"
+        now = pygame.time.get_ticks()
+        tsec = now / 1000.0
+        letter_surfs = []
+        total_w = 0
+        max_h = 0
+        for i, ch in enumerate(title):
+            phase = i * 0.25
+            freq = 1.0
+            r = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 0.0)))
+            g = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 2.0)))
+            b = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 4.0)))
+            col = (r, g, b)
+            color_surf = font_big.render(ch, True, col).convert_alpha()
+            bw, bh = color_surf.get_size()
+            surf = pygame.Surface((bw + 6, bh + 6), pygame.SRCALPHA)
+            black_surf = font_big.render(ch, True, black).convert_alpha()
+            offsets = [(-2,0),(2,0),(0,-2),(0,2),(-1,-1),(1,-1),(-1,1),(1,1)]
+            for ox, oy in offsets:
+                surf.blit(black_surf, (3 + ox, 3 + oy))
+            surf.blit(color_surf, (3, 3))
+            letter_surfs.append(surf)
+            total_w += surf.get_width()
+            max_h = max(max_h, surf.get_height())
+        text_surf = pygame.Surface((total_w, max_h), pygame.SRCALPHA)
+        x = 0
+        for surf in letter_surfs:
+            text_surf.blit(surf, (x, 0))
+            x += surf.get_width()
+        rotated_img = pygame.transform.rotate(text_surf, swing_angle)
+        rotated_rect = rotated_img.get_rect(center=(300, 120 + pulse_offset))
         screen.blit(rotated_img, rotated_rect)
         # подсвечиваем выбранную кнопку
         btn_ai.draw(highlight=(menu_index==0))
@@ -468,18 +834,67 @@ while running:
 
     # -------------------- ВЫБОР СЛОЖНОСТИ --------------------
     elif state == "difficulty":
+        # отрисовка анимированного фона для меню выбора сложности (если кадры загружены)
+        if backdiff_frames:
+            now = pygame.time.get_ticks()
+            if now - backdiff_last_frame_time >= backdiff_frame_interval:
+                backdiff_frame_index = (backdiff_frame_index + 1) % len(backdiff_frames)
+                backdiff_last_frame_time = now
+            screen.blit(backdiff_frames[backdiff_frame_index], (0, 0))
+        else:
+            # fallback — обычный фон
+            screen.fill(background)
+
         menu_timer += 1
         pulse_offset = math.sin(menu_timer * 0.05) * menu_pulse_amplitude
         swing_angle = math.sin(menu_timer * 0.05) * menu_swing_angle
-        text_img = font_big.render("Choose Your Way", True, white)
-        text_rect = text_img.get_rect(center=(300, 120 + pulse_offset))
-        rotated_img = pygame.transform.rotate(text_img, swing_angle)
-        rotated_rect = rotated_img.get_rect(center=text_rect.center)
+        # По-буквенная RGB-подсветка заголовка "Choose Your Way"
+        title = "Choose Your Way"
+        now = pygame.time.get_ticks()
+        tsec = now / 1000.0
+        # подготовим поверхности для каждой буквы с индивидуальным цветом и чёрным контуром
+        letter_surfs = []
+        total_w = 0
+        max_h = 0
+        for i, ch in enumerate(title):
+            # фазовый сдвиг по индексу для красивого градиента
+            phase = i * 0.25
+            freq = 1.0
+            r = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 0.0)))
+            g = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 2.0)))
+            b = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 4.0)))
+            col = (r, g, b)
+            # рендерим букву цветом и чёрный контур (несколько смещений)
+            color_surf = font_big.render(ch, True, col).convert_alpha()
+            bw, bh = color_surf.get_size()
+            # создаём поверхность с запасом под контур
+            surf = pygame.Surface((bw + 4, bh + 4), pygame.SRCALPHA)
+            black_surf = font_big.render(ch, True, black).convert_alpha()
+            # смещения для контура (толщина обводки)
+            offsets = [(-2,0),(2,0),(0,-2),(0,2),(-1,-1),(1,-1),(-1,1),(1,1)]
+            for ox, oy in offsets:
+                surf.blit(black_surf, (2 + ox, 2 + oy))
+            # центральная цветная буква
+            surf.blit(color_surf, (2, 2))
+            letter_surfs.append(surf)
+            total_w += surf.get_width()
+            max_h = max(max_h, surf.get_height())
+        # соберём строку в прозрачную поверхность
+        text_surf = pygame.Surface((total_w, max_h), pygame.SRCALPHA)
+        x = 0
+        for surf in letter_surfs:
+            text_surf.blit(surf, (x, 0))
+            x += surf.get_width()
+        # поворот и центрирование как раньше
+        rotated_img = pygame.transform.rotate(text_surf, swing_angle)
+        rotated_rect = rotated_img.get_rect(center=(300, 120 + pulse_offset))
         screen.blit(rotated_img, rotated_rect)
         # подсвечиваем выбранную кнопку сложности
         btn_easy.draw(highlight=(diff_index==0))
         btn_med.draw(highlight=(diff_index==1))
         btn_hard.draw(highlight=(diff_index==2))
+        # рисуем Back справа-снизу (можно навестись клавиатурой)
+        btn_back.draw(highlight=(diff_index==3))
 
     # -------------------- ИГРА --------------------
     elif state == "game":
@@ -487,12 +902,15 @@ while running:
         if mode == "pvp":
             draw_text(f"P1: {player_score}   P2: {cpu_score}", font, white, 200, 10)
         else:  # против ИИ
-            draw_text(f"FI: {player_score}   AI: {cpu_score}", font, white, 200, 10)
+            draw_text(f"P1: {player_score}   AI: {cpu_score}", font, white, 200, 10)
 
 
         # Если ждём нажатия клавиши, просто выводим текст
         if waiting_for_key:
-            draw_text("Press any key to continue...", font, white, screen_width//2, screen_height//2, center=True)
+            draw_text("Press SPACE to continue...", font, white, screen_width//2, screen_height//2, center=True)
+            # рисуем кнопки Back и Exit под текстом (подсветка по pause_index)
+            btn_back_pause.draw(highlight=(pause_index==0))
+            btn_exit_pause.draw(highlight=(pause_index==1))
         else:
             # Управление игроками
             if mode == "pvp":
@@ -523,18 +941,43 @@ while running:
                 else:
                     b.draw()
 
-            # Стены (только для hard и AI)
-            if mode == "ai" and difficulty == "hard":
+            # Стены: появляются в режиме PVP или в AI при difficulty == "hard"
+            if (mode == "ai" and difficulty == "hard") or mode == "pvp":
                 wall_timer += 1
                 game_timer += 1
-                if wall_timer > random.randint(500, 800):
+
+                # Когда таймер достигает порога — сформировать очередь типов стен (не спавнить сразу)
+                if wall_timer > random.randint(500, 800) and not pending_wall_types:
                     safe_margin = 65
-                    for _ in range(random.randint(1, 2)):
+                    solids = random.randint(2, 3)   # красные отражающие
+                    slows = random.randint(1, 2)    # жёлтые замедляющие
+                    fasts = random.randint(1, 3)    # зелёные ускоряющие
+                    types = ["solid"] * solids + ["slow"] * slows + ["fast"] * fasts
+                    random.shuffle(types)
+                    pending_wall_types = types[:]  # заполнили очередь
+                    # подготовим момент для немедленного спавна первой стены
+                    last_wall_spawn_time = pygame.time.get_ticks() - wall_spawn_interval
+                    # обнуляем основной таймер, чтобы через время снова сформировать очередь
+                    wall_timer = 0
+
+                # Спавним по одному элементу из очереди с интервалом wall_spawn_interval
+                if pending_wall_types and pygame.time.get_ticks() - last_wall_spawn_time >= wall_spawn_interval:
+                    t = pending_wall_types.pop(0)
+                    placed = False
+                    attempts = 0
+                    safe_margin = 65
+                    while not placed and attempts < 30:
                         x = random.randint(safe_margin, screen_width - 95)
                         y = random.randint(80, screen_height - 100)
-                        if not any(w.rect.colliderect(Rect(x, y, 30, 80)) for w in walls):
-                            walls.append(Wall(x, y, 30, 80, random.choice(["solid","slow","fast"])))
-                    wall_timer = 0
+                        new_rect = Rect(x, y, 30, 80)
+                        if not any(w.rect.colliderect(new_rect.inflate(10, 10)) for w in walls):
+                            w = Wall(x, y, 30, 80, t)
+                            # задаём время жизни каждой стены wall_lifetime (1.5s)
+                            w.duration = wall_lifetime
+                            walls.append(w)
+                            placed = True
+                        attempts += 1
+                    last_wall_spawn_time = pygame.time.get_ticks()
 
             for w in walls[:]:
                 w.update()
@@ -545,6 +988,13 @@ while running:
             # Движение мяча
             winner = pong.move([(player_paddle, "player"), (cpu_paddle, "cpu")], boosters, walls)
             if winner != 0:
+                waiting_for_key = True  # ждём нажатия клавиши перед продолжением
+                cpu_paddle.rect.y = screen_height // 2
+                player_paddle.rect.y = screen_height // 2
+                pong = Ball(screen_width // 2, screen_height // 2, 5)
+                # Сброс мяча и ракеток
+                pygame.time.wait(100)
+                pygame.display.update()
                 if winner == 1:
                     cpu_score += 1
                     goal_sound.play()
@@ -562,6 +1012,7 @@ while running:
                 cpu_paddle.rect.y = screen_height // 2
 
                 waiting_for_key = True  # ждём нажатия клавиши перед продолжением
+
 
     pygame.display.update()
 
