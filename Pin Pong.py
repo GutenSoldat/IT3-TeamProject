@@ -272,12 +272,12 @@ while running:
             if state == "menu":
                 if btn_ai.is_clicked(pos):
                     state = "difficulty"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_pvp.is_clicked(pos):
                     mode = "pvp"
                     state = "game"
                     play_music(music_pvp)
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_exit.is_clicked(pos):
                     running = False
             elif state == "difficulty":
@@ -285,17 +285,17 @@ while running:
                     difficulty = "easy"
                     play_music(music_easy)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_med.is_clicked(pos):
                     difficulty = "medium"
                     play_music(music_medium)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
                 elif btn_hard.is_clicked(pos):
                     difficulty = "hard"
                     play_music(music_hard)
                     state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks (mp3cut.net).mp3').play().set_volume(0.5)
+                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
 
         # Если ждём нажатие клавиши после гола
         if waiting_for_key:
@@ -336,7 +336,7 @@ while running:
         if mode == "pvp":
             draw_text(f"P1: {player_score}   P2: {cpu_score}", font, white, 200, 10)
         else:  # против ИИ
-            draw_text(f"FI: {player_score}   AI: {cpu_score}", font, white, 200, 10)
+            draw_text(f"P1: {player_score}   AI: {cpu_score}", font, white, 200, 10)
 
 
         # Если ждём нажатия клавиши, просто выводим текст
