@@ -35,6 +35,10 @@ menu_timer = 0
 menu_pulse_amplitude = 10
 menu_swing_angle = 5
 
+# игровая область (бордера). Верхняя линия уже была на y=50 — добавляем нижнюю симметрично
+top_border_y = 50
+bottom_border_y = screen_height - 50
+
 # Музыка
 music_menu = 'Sun Araw - Horse Steppin _ Hotline Miami OST.mp3'
 music_easy = 'Hotline Miami Soundtrack ~ Crystals [QXkSYSPTpj4].mp3'
@@ -71,7 +75,10 @@ def draw_text(text, font, color, x, y, center=False):
 
 def draw_board():
     screen.fill(background)
-    pygame.draw.line(screen, white, (0, 50), (screen_width, 50))
+    # верхний бордер (разделитель для HUD)
+    pygame.draw.line(screen, white, (0, top_border_y), (screen_width, top_border_y))
+    # нижний бордер — от которого мяч будет отскакивать, чтобы не проваливался
+    pygame.draw.line(screen, white, (0, bottom_border_y), (screen_width, bottom_border_y))
 
 def fade_while_channel_busy(channel):
     """Показывает плавное затемнение экрана пока играет channel (или хотя бы длительность click_sound)."""
@@ -126,6 +133,17 @@ def load_sequence_frames(folder, prefix, start, end, digits=3, ext='.jpg'):
         except Exception:
             continue
     return frames
+
+def difficulty_ball_speed(diff):
+    """Возвращает базовую скорость мяча для данной сложности."""
+    if diff == "easy":
+        return 4
+    if diff == "medium":
+        return 5
+    if diff == "hard":
+        return 6
+    # по умолчанию (PVP или неопределённая) — средняя
+    return 5
 
 def run_intro():
     # используем полный путь к папке с кадрами на вашем ПК
@@ -363,9 +381,10 @@ class Paddle:
 
     def move(self, up_key, down_key):
         keys = pygame.key.get_pressed()
-        if keys[up_key] and self.rect.top > 50:
+        # лимитирование по верхнему/нижнему бордеру
+        if keys[up_key] and self.rect.top > top_border_y:
             self.rect.move_ip(0, -self.speed)
-        if keys[down_key] and self.rect.bottom < screen_height:
+        if keys[down_key] and self.rect.bottom < bottom_border_y:
             self.rect.move_ip(0, self.speed)
 
     def ai(self, ball, difficulty):
@@ -378,9 +397,9 @@ class Paddle:
             speed_factor = 1
         else:
             speed_factor = 2
-        if self.rect.centery < ball.rect.top and self.rect.bottom < screen_height:
+        if self.rect.centery < ball.rect.top and self.rect.bottom < bottom_border_y:
             self.rect.move_ip(0, int(self.speed * speed_factor))
-        elif self.rect.centery > ball.rect.bottom and self.rect.top > 50:
+        elif self.rect.centery > ball.rect.bottom and self.rect.top > top_border_y:
             self.rect.move_ip(0, -int(self.speed * speed_factor))
 
     def update(self):
@@ -406,48 +425,136 @@ class Ball:
         self.effect_end_time = None  # таймер для восстановления скорости после стены
         self.last_hit = None  # "player" или "cpu"
 
+    def _reflect_from_paddle(self, p, name):
+        """Устанавливает new velocity в зависимости от места попадания по высоте."""
+        # hit ratio: -1 (верх) .. 0 (центр) .. 1 (низ)
+        hit_ratio = (self.rect.centery - p.rect.centery) / (p.rect.height / 2)
+        hit_ratio = max(-1.0, min(1.0, hit_ratio))
+        max_angle = math.radians(60)  # максимум угла отклонения от горизонтали
+        angle = hit_ratio * max_angle
+        # сохраняем текущую скорость как величину
+        mag = max(1.0, math.hypot(self.speed_x, self.speed_y))
+        # направление по X: отталкиваемся от ракетки (вправо для левой ракетки, влево для правой)
+        dir_sign = 1 if p.rect.centerx < screen_width / 2 else -1
+        # устанавливаем новые компоненты скорости (исходные)
+        sx = math.cos(angle) * mag * dir_sign
+        sy = math.sin(angle) * mag
+        # Гарантируем минимальную горизонтальную составляющую, чтобы отскок не был чисто вертикальным
+        min_horz_ratio = 0.5  # доля от общей скорости (подправьте при желании)
+        min_horz = mag * min_horz_ratio
+        if abs(sx) < min_horz:
+            sx = math.copysign(min_horz, sx if sx != 0 else dir_sign)
+            # пересчитаем вертикальную компоненту так, чтобы сохранить общую скорость (магнитуду)
+            sy_sign = math.copysign(1.0, sy) if sy != 0 else 1.0
+            sy = sy_sign * math.sqrt(max(0.0, mag * mag - sx * sx))
+        self.speed_x = sx
+        self.speed_y = sy
+        self.last_hit = name
+
     def move(self, paddles, boosters, walls):
         # Восстановление стандартной скорости, если эффект закончился
         if self.effect_end_time and pygame.time.get_ticks() >= self.effect_end_time:
-            self.speed_x = self.initial_speed_x * (1 if self.speed_x > 0 else -1)
-            self.speed_y = self.initial_speed_y * (1 if self.speed_y > 0 else -1)
+            self.speed_x = (self.initial_speed_x if self.speed_x > 0 else -self.initial_speed_x)
+            self.speed_y = (self.initial_speed_y if self.speed_y > 0 else -self.initial_speed_y)
             self.effect_end_time = None
 
-        # Отскок от верхней и нижней границы
-        if self.rect.top < 50 or self.rect.bottom > screen_height:
-            self.speed_y *= -1
+        # сначала двигаем по X и проверяем горизонтальные столкновения (ракеты / стены)
+        self.rect.x += int(self.speed_x)
 
-        # Отскок от ракеток
-        for p, name in paddles:  # Передаём список кортежей: (ракета, "player"/"cpu")
+        # Столкновения с ракетками (горизонтально) — корректируем позицию и отражаем по X
+        for p, name in paddles:
             if self.rect.colliderect(p.rect):
-                self.speed_x *= -1
-                self.last_hit = name
+                # поместить мяч рядом с ракеткой по X в зависимости от направления
+                if self.speed_x > 0:
+                    # двигались вправо -> упёрлись в левую грань ракетки
+                    self.rect.right = p.rect.left
+                else:
+                    self.rect.left = p.rect.right
+                # Вводим реалистичный отскок в зависимости от места попадания
+                try:
+                    self._reflect_from_paddle(p, name)
+                except Exception:
+                    # fallback — простое инвертирование
+                    self.speed_x = -self.speed_x
+                    self.last_hit = name
 
-        # Взаимодействие с бустерами
-        for b in boosters[:]:
-            if self.rect.colliderect(b.rect) and not b.used:
-                b.activate(self, self.last_hit)
-                boosters.remove(b)
-                pygame.time.set_timer(pygame.USEREVENT + 1, 2000)
-
-        # Взаимодействие со стенами
+        # Столкновения со стенами (горизонтально) — корректируем позицию и применяем эффект
         for w in walls:
             if w.visible and self.rect.colliderect(w.rect) and not getattr(w, 'used', False):
                 w.used = True
+                # ставим мяч снаружи стены по X
+                if self.rect.centerx < w.rect.centerx:
+                    self.rect.right = w.rect.left
+                else:
+                    self.rect.left = w.rect.right
+
                 if w.type == "solid":
-                    self.speed_x *= -1
+                    self.speed_x = -self.speed_x
                 elif w.type == "slow":
-                    self.speed_x *= 0.6
-                    self.speed_y *= 0.6
+                    self.speed_x = int(self.speed_x * 0.6) or (-1 if self.speed_x < 0 else 1)
+                    self.speed_y = int(self.speed_y * 0.6) or (-1 if self.speed_y < 0 else 1)
                     self.effect_end_time = pygame.time.get_ticks() + 4000
                 elif w.type == "fast":
-                    self.speed_x *= 1.2
-                    self.speed_y *= 1.2
+                    self.speed_x = int(self.speed_x * 1.2) or (1 if self.speed_x > 0 else -1)
+                    self.speed_y = int(self.speed_y * 1.2) or (1 if self.speed_y > 0 else -1)
                     self.effect_end_time = pygame.time.get_ticks() + 4000
 
-        # Движение мяча
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        # затем двигаем по Y и проверяем вертикальные столкновения (границы / ракетки / стены)
+        self.rect.y += int(self.speed_y)
+
+        # Отскок от верхней и нижней границы — корректируем позицию и скорость
+        if self.rect.top < top_border_y:
+            self.rect.top = top_border_y
+            self.speed_y = abs(self.speed_y)
+        elif self.rect.bottom > bottom_border_y:
+            self.rect.bottom = bottom_border_y
+            self.speed_y = -abs(self.speed_y)
+
+        # Столкновения с ракетками (вертикально) — если мяч всё ещё пересекает ракетку по Y, делаем отражение с учётом места попадания
+        for p, name in paddles:
+            if self.rect.colliderect(p.rect):
+                # выталкиваем по вертикали чтобы убрать проникновение
+                if self.speed_y > 0:
+                    self.rect.bottom = p.rect.top
+                else:
+                    self.rect.top = p.rect.bottom
+                # отражаем с расчётом угла по месту попадания
+                try:
+                    self._reflect_from_paddle(p, name)
+                except Exception:
+                    self.speed_y = -self.speed_y
+                    self.last_hit = name
+
+        # Взаимодействие с бустерами (после движения)
+        for b in boosters[:]:
+            if self.rect.colliderect(b.rect) and not b.used:
+                b.activate(self, self.last_hit)
+                try:
+                    boosters.remove(b)
+                except ValueError:
+                    pass
+                pygame.time.set_timer(pygame.USEREVENT + 1, 2000)
+
+        # Взаимодействие со стенами по вертикали — если мяч "вошёл" в стену по Y, выталкиваем и обрабатываем эффект
+        for w in walls:
+            if w.visible and self.rect.colliderect(w.rect) and not getattr(w, 'used', False):
+                w.used = True
+                # выталкиваем сверху/снизу
+                if self.rect.centery < w.rect.centery:
+                    self.rect.bottom = w.rect.top
+                else:
+                    self.rect.top = w.rect.bottom
+
+                if w.type == "solid":
+                    self.speed_y = -self.speed_y
+                elif w.type == "slow":
+                    self.speed_x = int(self.speed_x * 0.6) or (-1 if self.speed_x < 0 else 1)
+                    self.speed_y = int(self.speed_y * 0.6) or (-1 if self.speed_y < 0 else 1)
+                    self.effect_end_time = pygame.time.get_ticks() + 4000
+                elif w.type == "fast":
+                    self.speed_x = int(self.speed_x * 1.2) or (1 if self.speed_x > 0 else -1)
+                    self.speed_y = int(self.speed_y * 1.2) or (1 if self.speed_y > 0 else -1)
+                    self.effect_end_time = pygame.time.get_ticks() + 4000
 
         # Проверка гола
         if self.rect.left < 0:
@@ -485,7 +592,8 @@ class Wall:
 
 class Booster:
     def __init__(self):
-        self.rect = Rect(random.randint(50, screen_width - 70), 50, 20, 20)
+        # спавн по Y у верхней границы игрового поля
+        self.rect = Rect(random.randint(50, screen_width - 70), top_border_y, 20, 20)
         self.effect = random.choice(["speed_up", "slow", "big_paddle"])
         self.color = (0, 255, 0) if self.effect=="speed_up" else (255, 255, 0) if self.effect=="slow" else (0, 150, 255)
         self.used = False  # срабатывает только один раз
@@ -548,9 +656,11 @@ menu_index = 0
 diff_index = 0
 pause_index = 0  # 0 = Back, 1 = Exit (на экране ожидания)
 
-player_paddle = Paddle(20, screen_height // 2)
-cpu_paddle = Paddle(screen_width - 40, screen_height // 2)
-pong = Ball(screen_width // 2, screen_height // 2, 4)
+# центр игровой области с учётом бордеров — используем везде для корректного позиционирования
+center_y = (top_border_y + bottom_border_y) // 2
+player_paddle = Paddle(20, center_y)
+cpu_paddle = Paddle(screen_width - 40, center_y)
+pong = Ball(screen_width // 2, center_y, 4)
 boosters = []
 walls = []
 wall_timer = booster_timer = 0
@@ -632,6 +742,8 @@ while running:
                     pygame.display.update()
                     pygame.time.wait(120)
                     mode = "pvp"
+                    # создаём мяч для PVP со стандартной скоростью PVP (используем среднюю)
+                    pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(None))
                     state = "game"
                     play_music(music_pvp)
                     pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
@@ -666,6 +778,8 @@ while running:
                     mode = "ai"
                     difficulty = "hard"
                     play_music(music_hard)
+                    # пересоздаём мяч с базовой скоростью для выбранной сложности
+                    pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(difficulty))
                     state = "game"
                     pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
 
@@ -731,6 +845,8 @@ while running:
                         pygame.display.update()
                         pygame.time.wait(120)
                         mode = "pvp"
+                        # создаём мяч для PVP со стандартной скоростью PVP (используем среднюю)
+                        pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(None))
                         state = "game"
                         play_music(music_pvp)
                     elif menu_index == 2:
@@ -771,6 +887,8 @@ while running:
                         mode = "ai"
                         difficulty = "hard"
                         play_music(music_hard)
+                        # пересоздаём мяч с базовой скоростью для выбранной сложности
+                        pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(difficulty))
                         state = "game"
                     elif diff_index == 3:
                         # Back через клавиатуру
@@ -945,7 +1063,8 @@ while running:
                 booster_timer = 0
             for b in boosters[:]:
                 b.move()
-                if b.rect.top > screen_height:
+                # удаляем бустер, если он ушёл за нижний бордер
+                if b.rect.top > bottom_border_y:
                     boosters.remove(b)
                 else:
                     b.draw()
@@ -998,9 +1117,10 @@ while running:
             winner = pong.move([(player_paddle, "player"), (cpu_paddle, "cpu")], boosters, walls)
             if winner != 0:
                 waiting_for_key = True  # ждём нажатия клавиши перед продолжением
-                cpu_paddle.rect.y = screen_height // 2
-                player_paddle.rect.y = screen_height // 2
-                pong = Ball(screen_width // 2, screen_height // 2, 5)
+                # выравниваем по центру игровой области
+                cpu_paddle.rect.centery = center_y
+                player_paddle.rect.centery = center_y
+                pong = Ball(screen_width // 2, center_y, 5)
                 # Сброс мяча и ракеток
                 pygame.time.wait(100)
                 pygame.display.update()
@@ -1016,9 +1136,11 @@ while running:
                 pygame.time.wait(2000)
 
                 # Сброс мяча и ракеток
-                pong = Ball(screen_width // 2, screen_height // 2, 5)
-                player_paddle.rect.y = screen_height // 2
-                cpu_paddle.rect.y = screen_height // 2
+                # создаём новый мяч: если режим AI — скорость по выбранной сложности, иначе средняя
+                new_speed = difficulty_ball_speed(difficulty) if mode == "ai" and difficulty else difficulty_ball_speed(None)
+                pong = Ball(screen_width // 2, center_y, new_speed)
+                player_paddle.rect.centery = center_y
+                cpu_paddle.rect.centery = center_y
 
                 waiting_for_key = True  # ждём нажатия клавиши перед продолжением
 
