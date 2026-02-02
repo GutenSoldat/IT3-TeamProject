@@ -188,7 +188,7 @@ def load_sequence_frames(folder, prefix, start, end, digits=3, ext='.jpg'):
     return frames
 
 def difficulty_ball_speed(diff):
-    """Возвращает базовую скорость мяча для данной сложности."""
+    # Возвращает базовую скорость мяча для данной сложности.
     if diff == "easy":
         return 4
     if diff == "medium":
@@ -1148,8 +1148,8 @@ while running:
         # полностью чёрный фон с редкими переливами-пикселями (звёзды)
         screen.fill(black)
         # спавним редкие искорки
-        sparkle_timer += 1
-        if random.random() < 0.03:
+        sparkle_timer += 2
+        if random.random() < 0.3:
             settings_sparkles.append(Sparkle())
         # обновляем и рисуем искорки
         for s in settings_sparkles[:]:
@@ -1173,7 +1173,7 @@ while running:
         knob_y = slider_rect.centery
         knob_r = slider_height//2 + 6
         # кольцо (эллипс немного шире чем шар)
-        ring_rect = pygame.Rect(0,0, int(knob_r*2.6), int(knob_r*1.0))
+        ring_rect = pygame.Rect(0,0, int(knob_r*3), int(knob_r*1.0))
         ring_rect.center = (knob_x, knob_y)
         pygame.draw.ellipse(screen, (200,180,140,180), ring_rect, width=6)
         # сам шар
@@ -1186,7 +1186,7 @@ while running:
         draw_text("Press ESC to return", font, (150,150,150), screen_width//2, slider_rect.bottom + 40, center=True)
 
         # Рисуем кнопку шестерёнки (чтобы пользователь видел куда нажимал)
-        btn_settings.draw()
+        # btn_settings.draw()
 
     # -------------------- ИГРА --------------------
     elif state == "game":
