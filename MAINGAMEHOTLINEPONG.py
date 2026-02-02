@@ -5,15 +5,26 @@ import math
 import os
 import glob
 
+# базовая папка — папка, где лежит этот скрипт; позволяет перемещать проект без правки путей
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def res(rel_path):
+    return os.path.join(BASE_DIR, rel_path)
+
 pygame.init()
-pygame.mixer.init()
+# Инициализация микшера с безопасным фолбеком
+sound_enabled = True
+try:
+    pygame.mixer.init()
+except Exception:
+    sound_enabled = False
 
 # -------------------- ПАРАМЕТРЫ --------------------
 screen_width = 600
 screen_height = 500
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Hotline Pong')
-icon = pygame.image.load('welllwelllwelll8.jpg')
+icon = pygame.image.load(res('wellwellwell8.jpg'))
 pygame.display.set_icon(icon)
 
 # Цвета
@@ -26,9 +37,15 @@ yellow = (255, 255, 0)
 green = (0, 255, 0)
 
 # Шрифты
-font = pygame.font.Font('Squealer.otf', 36)
-font_big = pygame.font.Font('Squealer.otf', 72)
-menu_font = pygame.font.Font('Squealer.otf', 42)
+# Шрифт с фолбеком на системный, если файл отсутствует
+try:
+    font = pygame.font.Font(res('fonts/Squealer.otf'), 36)
+    font_big = pygame.font.Font(res('fonts/Squealer.otf'), 72)
+    menu_font = pygame.font.Font(res('fonts/Squealer.otf'), 42)
+except Exception:
+    font = pygame.font.SysFont(None, 36)
+    font_big = pygame.font.SysFont(None, 72)
+    menu_font = pygame.font.SysFont(None, 42)
 
 # Пульсация меню
 menu_timer = 0
@@ -40,29 +57,65 @@ top_border_y = 50
 bottom_border_y = screen_height - 50
 
 # Музыка
-music_menu = 'Sun Araw - Horse Steppin _ Hotline Miami OST.mp3'
-music_easy = 'Hotline Miami Soundtrack ~ Crystals [QXkSYSPTpj4].mp3'
-music_medium = 'Perturbator - Miami Disco _ Hotline Miami OST.mp3'
-music_hard = 'Jasper Byrne - Hotline _ Hotline Miami OST.mp3'
-music_pvp = 'Perturbator - Vengance _ Hotline Miami OST.mp3'
-goal_sound = pygame.mixer.Sound('Windows Error Sound effect.mp3')
-lose_sound = pygame.mixer.Sound('GOAL.mp3')
+music_menu = res('music/Sun Araw - Horse Steppin _ Hotline Miami OST.mp3')
+music_easy = res('music/Hotline Miami Soundtrack ~ Crystals [QXkSYSPTpj4].mp3')
+music_medium = res('music/Perturbator - Miami Disco _ Hotline Miami OST.mp3')
+music_hard = res('music/Jasper Byrne - Hotline _ Hotline Miami OST.mp3')
+music_pvp = res('music/Perturbator - Vengance _ Hotline Miami OST.mp3')
+if sound_enabled:
+    try:
+        goal_sound = pygame.mixer.Sound(res('music/Windows Error Sound effect.mp3'))
+    except Exception:
+        goal_sound = None
+    try:
+        lose_sound = pygame.mixer.Sound(res('music/GOAL.mp3'))
+    except Exception:
+        lose_sound = None
+else:
+    goal_sound = None
+    lose_sound = None
 
 # добавляем один экземпляр hover-звука и канал для контроля воспроизведения
-hover_sound = pygame.mixer.Sound('zvuk-perezariadki-ak47.mp3')
+if sound_enabled:
+    try:
+        hover_sound = pygame.mixer.Sound(res('music/zvuk-perezariadki-ak47.mp3'))
+    except Exception:
+        hover_sound = None
+else:
+    hover_sound = None
 hover_channel = None
 
 # флаг — последнее взаимодействие было с клавиатуры (используется для звука наведения)
 last_input_was_keyboard = False
 
 # добавляем глобальный click_sound и используем его в Button.press
-click_sound = pygame.mixer.Sound('odinochn-vystrel-aks.mp3')
+if sound_enabled:
+    try:
+        click_sound = pygame.mixer.Sound(res('music/odinochn-vystrel-aks.mp3'))
+    except Exception:
+        click_sound = None
+else:
+    click_sound = None
 
 # -------------------- ФУНКЦИИ --------------------
 def play_music(track):
-    pygame.mixer.music.load(track)
-    pygame.mixer.music.play(-1)
-    pygame.mixer.music.set_volume(0.2)
+    if not sound_enabled:
+        return
+    try:
+        pygame.mixer.music.load(track)
+        pygame.mixer.music.play(-1)
+        # Use settings_volume if available so UI slider affects all music
+        vol = globals().get('settings_volume', 0.2)
+        try:
+            pygame.mixer.music.set_volume(vol)
+        except Exception:
+            # fallback to default
+            try:
+                pygame.mixer.music.set_volume(0.2)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 def draw_text(text, font, color, x, y, center=False):
     img = font.render(text, True, color)
@@ -146,10 +199,10 @@ def difficulty_ball_speed(diff):
     return 5
 
 def run_intro():
-    # используем полный путь к папке с кадрами на вашем ПК
-    frames = load_background_frames(r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\Background')
+    # используем папку Background внутри проекта
+    frames = load_background_frames(res('Background'))
     try:
-        intro_sound = pygame.mixer.Sound('why-did-you-make-me-do-this-made-with-Voicemod.mp3')
+        intro_sound = pygame.mixer.Sound(res('music/why-did-you-make-me-do-this-made-with-Voicemod.mp3'))
     except Exception:
         intro_sound = None
 
@@ -257,9 +310,18 @@ def run_intro():
 
 # -------------------- КЛАССЫ --------------------
 class Button:
-    def __init__(self, x, y, w, h, text):
+    def __init__(self, x, y, w, h, text, image_path=None):
         self.rect = Rect(x, y, w, h)
         self.text = text
+        # Поддержка кнопок с изображением (иконка в центре)
+        self.image = None
+        if image_path:
+            try:
+                img = pygame.image.load(image_path).convert_alpha()
+                img = pygame.transform.smoothscale(img, (max(8, w-12), max(8, h-12)))
+                self.image = img
+            except Exception:
+                self.image = None
         self.hovered_last = False
         self.active_last = False  # запоминаем предыдущее состояние подсветки/наведения
         self.pressed_until = 0  # ms, время окончания эффекта нажатия
@@ -282,12 +344,14 @@ class Button:
         self.pressed_until = pygame.time.get_ticks() + duration
         try:
             # играем заранее загруженный click_sound и возвращаем канал
-            ch = click_sound.play()
-            if ch:
-                ch.set_volume(0.5)
-            return ch
+            if click_sound:
+                ch = click_sound.play()
+                if ch:
+                    ch.set_volume(0.5)
+                return ch
         except Exception:
-            return None
+            pass
+        return None
 
     # добавлен параметр highlight для подсветки при навигации клавиатурой
     def draw(self, highlight=False):
@@ -348,11 +412,17 @@ class Button:
         pygame.draw.line(screen, dark_color, (draw_rect.left+4, draw_rect.bottom-2), (draw_rect.right-4, draw_rect.bottom-2), 3)
         pygame.draw.line(screen, dark_color, (draw_rect.right-2, draw_rect.top+4), (draw_rect.right-2, draw_rect.bottom-4), 3)
 
-        # текст — сдвигаем при нажатии для ощущения глубины
-        text_img = menu_font.render(self.text, True, black)
-        text_rect = text_img.get_rect(center=draw_rect.center)
-        text_rect = text_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
-        screen.blit(text_img, text_rect)
+        # Если есть картинка — показываем её центрированной на кнопке
+        if self.image:
+            img_rect = self.image.get_rect(center=draw_rect.center)
+            img_rect = img_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
+            screen.blit(self.image, img_rect)
+        else:
+            # текст — сдвигаем при нажатии для ощущения глубины
+            text_img = menu_font.render(self.text, True, black)
+            text_rect = text_img.get_rect(center=draw_rect.center)
+            text_rect = text_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
+            screen.blit(text_img, text_rect)
 
         # Проигрываем звук только при переходе в состояние active через highlight (клавиатура)
         global hover_channel
@@ -430,8 +500,11 @@ class Ball:
         # hit ratio: -1 (верх) .. 0 (центр) .. 1 (низ)
         hit_ratio = (self.rect.centery - p.rect.centery) / (p.rect.height / 2)
         hit_ratio = max(-1.0, min(1.0, hit_ratio))
-        max_angle = math.radians(60)  # максимум угла отклонения от горизонтали
+        max_angle = math.radians(80)  # максимум угла отклонения от горизонтали
         angle = hit_ratio * max_angle
+        # Небольшой рандом рядом с центром, чтобы мяч не летел идеально по горизонтали
+        if abs(hit_ratio) < 0.12:
+            angle += random.uniform(-0.15, 0.15) * max_angle
         # сохраняем текущую скорость как величину
         mag = max(1.0, math.hypot(self.speed_x, self.speed_y))
         # направление по X: отталкиваемся от ракетки (вправо для левой ракетки, влево для правой)
@@ -439,14 +512,23 @@ class Ball:
         # устанавливаем новые компоненты скорости (исходные)
         sx = math.cos(angle) * mag * dir_sign
         sy = math.sin(angle) * mag
-        # Гарантируем минимальную горизонтальную составляющую, чтобы отскок не был чисто вертикальным
-        min_horz_ratio = 0.5  # доля от общей скорости (подправьте при желании)
+
+        # Гарантируем минимум вертикальной составляющей, чтобы не было скучных идеально горизонтальных отскоков
+        min_vert_ratio = 0.15
+        min_vert = mag * min_vert_ratio
+        if abs(sy) < min_vert:
+            sy = math.copysign(min_vert, sy if sy != 0 else random.choice([-1, 1]))
+            sx_mag = math.sqrt(max(0.0, mag * mag - sy * sy))
+            sx = math.copysign(sx_mag, sx if sx != 0 else dir_sign)
+
+        # Также сохраняем прежнюю защиту от чисто вертикальных отскоков
+        min_horz_ratio = 0.5  # доля от общей скорости
         min_horz = mag * min_horz_ratio
         if abs(sx) < min_horz:
             sx = math.copysign(min_horz, sx if sx != 0 else dir_sign)
-            # пересчитаем вертикальную компоненту так, чтобы сохранить общую скорость (магнитуду)
             sy_sign = math.copysign(1.0, sy) if sy != 0 else 1.0
             sy = sy_sign * math.sqrt(max(0.0, mag * mag - sx * sx))
+
         self.speed_x = sx
         self.speed_y = sy
         self.last_hit = name
@@ -667,6 +749,51 @@ wall_timer = booster_timer = 0
 game_timer = 0
 mode = "ai"
 
+# -------------------- SETTINGS UI --------------------
+# кнопка-шестерёнка в правом нижнем углу (квадрат)
+settings_icon_size = 70
+btn_settings = Button(screen_width - settings_icon_size - 15, screen_height - settings_icon_size - 15,
+                      settings_icon_size, settings_icon_size, "", image_path=res('Shesternya.png'))
+
+# звук/громкость
+if sound_enabled:
+    try:
+        settings_volume = pygame.mixer.music.get_volume()
+    except Exception:
+        settings_volume = 0.2
+else:
+    settings_volume = 0.2
+
+# слайдер параметры
+slider_width = 380
+slider_height = 34
+slider_rect = pygame.Rect((screen_width - slider_width) // 2, screen_height // 2, slider_width, slider_height)
+slider_dragging = False
+
+# sparkle (звёздочки) для фоновой анимации
+class Sparkle:
+    def __init__(self):
+        self.x = random.randint(0, screen_width-1)
+        self.y = random.randint(0, screen_height-1)
+        self.life = random.randint(500, 2000)
+        self.spawn = pygame.time.get_ticks()
+        self.size = random.randint(1, 3)
+        self.brightness = random.uniform(0.4, 1.0)
+
+    def draw(self):
+        age = pygame.time.get_ticks() - self.spawn
+        t = max(0.0, min(1.0, age / self.life))
+        a = int(255 * (1.0 - t) * self.brightness)
+        surf = pygame.Surface((self.size*2, self.size*2), pygame.SRCALPHA)
+        surf.fill((255,255,255,a))
+        screen.blit(surf, (self.x, self.y))
+
+    def is_dead(self):
+        return pygame.time.get_ticks() - self.spawn >= self.life
+
+settings_sparkles = []
+sparkle_timer = 0
+
 # очередная генерация стен: список типов, таймер спавна и длительность одной стены
 pending_wall_types = []          # очередь типов стен, которые нужно по очереди заспавнить
 last_wall_spawn_time = 0         # время последнего спавна из очереди (ms)
@@ -678,7 +805,7 @@ play_music(music_menu)
 
 # загружаем кадры для фона основного меню
 backmain_frames = load_sequence_frames(
-    r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\BackMainMenu',
+    res('BackMainMenu'),
     prefix='hotline-miami-background_',
     start=0, end=48, digits=3, ext='.jpg'
 )
@@ -689,7 +816,7 @@ backmain_frame_interval = 40
 
 # Добавляем загрузку кадров для фона меню выбора сложности (63 кадра: 000..062)
 backdiff_frames = load_sequence_frames(
-    r'C:\Users\andre\OneDrive\Рабочий стол\Git\GitHubProject\BackDifficultyMenu',
+    res('BackDifficultyMenu'),
     prefix='miamibeach_',
     start=0, end=62, digits=3, ext='.jpg'
 )
@@ -706,82 +833,40 @@ while running:
         if event.type == QUIT:
             running = False
         if event.type == MOUSEBUTTONDOWN:
-            # Игнорируем клики: навигация и выбор — только клавиатурой
+            # мышь не управляет меню — только клавиатура/стрелки.
+            # Однако внутри экрана настроек разрешаем перетаскивать слайдер мышью.
             last_input_was_keyboard = False
-            # не обрабатываем pos и не вызываем is_clicked — клики не должны влиять на кнопки
-            continue
+            pos = event.pos
+            if state == "settings":
+                # проверим, кликнули ли по дорожке или по кнопке
+                knob_x = slider_rect.left + int(settings_volume * slider_rect.width)
+                knob_rect = pygame.Rect(0, 0, slider_height+6, slider_height+6)
+                knob_rect.center = (knob_x, slider_rect.centery)
+                if knob_rect.collidepoint(pos) or slider_rect.collidepoint(pos):
+                    slider_dragging = True
+                    rel = (pos[0] - slider_rect.left) / float(slider_rect.width)
+                    settings_volume = max(0.0, min(1.0, rel))
+                    if sound_enabled:
+                        try:
+                            pygame.mixer.music.set_volume(settings_volume)
+                        except Exception:
+                            pass
+                continue
 
-            # Если сейчас показывается экран ожидания после гола — обрабатываем Back/Exit
-            if waiting_for_key:
-                if btn_back_pause.is_clicked(pos):
-                    btn_back_pause.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    # возвращаемся в главное меню, сбрасываем счёт и флаги
-                    state = "menu"
-                    player_score = cpu_score = 0
-                    play_music(music_menu)
-                    waiting_for_key = False
-                    continue
-                if btn_exit_pause.is_clicked(pos):
-                    btn_exit_pause.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    running = False
-                    continue
+        if event.type == MOUSEMOTION:
+            if slider_dragging and state == "settings":
+                mx, my = event.pos
+                rel = (mx - slider_rect.left) / float(slider_rect.width)
+                settings_volume = max(0.0, min(1.0, rel))
+                if sound_enabled:
+                    try:
+                        pygame.mixer.music.set_volume(settings_volume)
+                    except Exception:
+                        pass
 
-            if state == "menu":
-                if btn_ai.is_clicked(pos):
-                    btn_ai.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    state = "difficulty"
-                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
-                elif btn_pvp.is_clicked(pos):
-                    btn_pvp.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    mode = "pvp"
-                    # создаём мяч для PVP со стандартной скоростью PVP (используем среднюю)
-                    pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(None))
-                    state = "game"
-                    play_music(music_pvp)
-                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
-                elif btn_exit.is_clicked(pos):
-                    btn_exit.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    running = False
-            elif state == "difficulty":
-                if btn_easy.is_clicked(pos):
-                    btn_easy.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    mode = "ai"
-                    difficulty = "easy"
-                    play_music(music_easy)
-                    state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
-                elif btn_med.is_clicked(pos):
-                    btn_med.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    mode = "ai"
-                    difficulty = "medium"
-                    play_music(music_medium)
-                    state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
-                elif btn_hard.is_clicked(pos):
-                    btn_hard.press()
-                    pygame.display.update()
-                    pygame.time.wait(120)
-                    mode = "ai"
-                    difficulty = "hard"
-                    play_music(music_hard)
-                    # пересоздаём мяч с базовой скоростью для выбранной сложности
-                    pong = Ball(screen_width // 2, screen_height // 2, difficulty_ball_speed(difficulty))
-                    state = "game"
-                    pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
+        if event.type == MOUSEBUTTONUP:
+            if slider_dragging:
+                slider_dragging = False
 
         # Если ждём нажатия клавиши после гола — обрабатываем специально:
         if waiting_for_key and event.type == KEYDOWN:
@@ -825,12 +910,35 @@ while running:
             # (звук наведения будет воспроизводиться только если этот флаг True)
             last_input_was_keyboard = True
 
+            # Если мы в меню настроек — обрабатываем клавиши тут (ESC — назад, стрелки — громкость)
+            if state == "settings":
+                if event.key == K_ESCAPE:
+                    state = "menu"
+                    last_input_was_keyboard = True
+                    continue
+                if event.key in (K_LEFT, K_a):
+                    settings_volume = max(0.0, settings_volume - 0.05)
+                    if sound_enabled:
+                        try:
+                            pygame.mixer.music.set_volume(settings_volume)
+                        except Exception:
+                            pass
+                    continue
+                if event.key in (K_RIGHT, K_d):
+                    settings_volume = min(1.0, settings_volume + 0.05)
+                    if sound_enabled:
+                        try:
+                            pygame.mixer.music.set_volume(settings_volume)
+                        except Exception:
+                            pass
+                    continue
+
             # навигация по главному меню
             if state == "menu":
                 if event.key in (K_w, K_UP):
-                    menu_index = (menu_index - 1) % 3
+                    menu_index = (menu_index - 1) % 4
                 elif event.key in (K_s, K_DOWN):
-                    menu_index = (menu_index + 1) % 3
+                    menu_index = (menu_index + 1) % 4
                 elif event.key in (K_RETURN, K_KP_ENTER):
                     # визуальный эффект нажатия перед переходом
                     if menu_index == 0:
@@ -854,6 +962,12 @@ while running:
                         pygame.display.update()
                         pygame.time.wait(120)
                         running = False
+                    elif menu_index == 3:
+                        # открыть меню настроек
+                        btn_settings.press()
+                        pygame.display.update()
+                        pygame.time.wait(120)
+                        state = "settings"
 
             # навигация по выбору сложности
             elif state == "difficulty":
@@ -896,7 +1010,11 @@ while running:
                         pygame.display.update()
                         fade_while_channel_busy(ch)
                         state = "menu"
-                        pygame.mixer.Sound('odinochn-vystrel-aks.mp3').play().set_volume(0.5)
+                        if click_sound:
+                            try:
+                                click_sound.play().set_volume(0.5)
+                            except Exception:
+                                pass
 
     # -------------------- МЕНЮ --------------------
     if state == "menu":
@@ -958,6 +1076,8 @@ while running:
         btn_ai.draw(highlight=(menu_index==0))
         btn_pvp.draw(highlight=(menu_index==1))
         btn_exit.draw(highlight=(menu_index==2))
+        # settings cog in menu (styled like others)
+        btn_settings.draw(highlight=(menu_index==3))
 
     # -------------------- ВЫБОР СЛОЖНОСТИ --------------------
     elif state == "difficulty":
@@ -1022,6 +1142,51 @@ while running:
         btn_hard.draw(highlight=(diff_index==2))
         # рисуем Back справа-снизу (можно навестись клавиатурой)
         btn_back.draw(highlight=(diff_index==3))
+
+    # -------------------- НАСТРОЙКИ --------------------
+    elif state == "settings":
+        # полностью чёрный фон с редкими переливами-пикселями (звёзды)
+        screen.fill(black)
+        # спавним редкие искорки
+        sparkle_timer += 1
+        if random.random() < 0.03:
+            settings_sparkles.append(Sparkle())
+        # обновляем и рисуем искорки
+        for s in settings_sparkles[:]:
+            s.draw()
+            if s.is_dead():
+                try:
+                    settings_sparkles.remove(s)
+                except ValueError:
+                    pass
+
+        # Заголовок
+        draw_text("SETTINGS", font_big, white, screen_width//2, 80, center=True)
+
+        # Дорожка слайдера (мягко-белого цвета)
+        track_color = (240, 240, 240)
+        pygame.draw.rect(screen, (40,40,40), slider_rect.inflate(8,8), border_radius=slider_height//2+4)
+        pygame.draw.rect(screen, track_color, slider_rect, border_radius=slider_height//2)
+
+        # Кнопка-ручка: изображаем как "Сатурн" — шар и кольцо
+        knob_x = slider_rect.left + int(settings_volume * slider_rect.width)
+        knob_y = slider_rect.centery
+        knob_r = slider_height//2 + 6
+        # кольцо (эллипс немного шире чем шар)
+        ring_rect = pygame.Rect(0,0, int(knob_r*2.6), int(knob_r*1.0))
+        ring_rect.center = (knob_x, knob_y)
+        pygame.draw.ellipse(screen, (200,180,140,180), ring_rect, width=6)
+        # сам шар
+        pygame.draw.circle(screen, (180,140,90), (knob_x, knob_y), knob_r)
+        # небольшой блик
+        pygame.draw.circle(screen, (255,220,180), (knob_x - knob_r//3, knob_y - knob_r//3), max(1, knob_r//5))
+
+        # Текст и инструкция
+        draw_text("Music Volume", font, (200,200,200), screen_width//2, slider_rect.top - 30, center=True)
+        draw_text("Press ESC to return", font, (150,150,150), screen_width//2, slider_rect.bottom + 40, center=True)
+
+        # Рисуем кнопку шестерёнки (чтобы пользователь видел куда нажимал)
+        btn_settings.draw()
 
     # -------------------- ИГРА --------------------
     elif state == "game":
