@@ -5,21 +5,37 @@ import math
 import os
 import glob
 
-# базовая папка — папка, где лежит этот скрипт; позволяет перемещать проект без правки путей
+# базова папка — папка, де лежить цей скрипт; дозволяє переміщувати проект без правки шляхів
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def res(rel_path):
     return os.path.join(BASE_DIR, rel_path)
 
 pygame.init()
-# Инициализация микшера с безопасным фолбеком
+# Ініціалізація мікшера з безпечним фолбеком
 sound_enabled = True
 try:
     pygame.mixer.init()
 except Exception:
     sound_enabled = False
 
-# -------------------- ПАРАМЕТРЫ --------------------
+# Попередження про відсутність гарнітури / аудіопристрою (нефатальна помилка).
+# Якщо аудіопідсистема не доступна — показуємо неблокуюче повідомлення
+# внизу зліва. Повідомлення відображається `HEADSET_WARNING_DISPLAY` мс,
+# після чого починається затемнення протягом `HEADSET_WARNING_FADE` мс.
+HEADSET_WARNING_DISPLAY = 7000  # ms (час показу до початку затемнення)
+HEADSET_WARNING_FADE = 700      # ms (тривалість ефекту затемнення)
+headset_warning = False
+headset_warning_start = None
+if not sound_enabled:
+    try:
+        # Безпечно викликати get_ticks() після pygame.init()
+        headset_warning = True
+        headset_warning_start = pygame.time.get_ticks()
+    except Exception:
+        headset_warning = False
+
+# -------------------- ПАРАМЕТРИ --------------------
 screen_width = 600
 screen_height = 500
 screen = pygame.display.set_mode((screen_width, screen_height))
@@ -27,7 +43,7 @@ pygame.display.set_caption('Hotline Pong')
 icon = pygame.image.load(res('wellwellwell8.jpg'))
 pygame.display.set_icon(icon)
 
-# Цвета
+# Кольори
 background = (50, 25, 50)
 white = (255, 255, 255)
 black = (0, 0, 0)
@@ -36,8 +52,8 @@ red = (255, 50, 50)
 yellow = (255, 255, 0)
 green = (0, 255, 0)
 
-# Шрифты
-# Шрифт с фолбеком на системный, если файл отсутствует
+# Шрифти
+# Шрифт з фолбеком на системний, якщо файл відсутній
 try:
     font = pygame.font.Font(res('fonts/Squealer.otf'), 36)
     font_big = pygame.font.Font(res('fonts/Squealer.otf'), 72)
@@ -47,16 +63,16 @@ except Exception:
     font_big = pygame.font.SysFont(None, 72)
     menu_font = pygame.font.SysFont(None, 42)
 
-# Пульсация меню
+# Пульсація меню
 menu_timer = 0
 menu_pulse_amplitude = 10
 menu_swing_angle = 5
 
-# игровая область (бордера). Верхняя линия уже была на y=50 — добавляем нижнюю симметрично
+# ігрова область (бордери). Верхня лінія — y=50, додаємо нижню симетрично
 top_border_y = 50
 bottom_border_y = screen_height - 50
 
-# Музыка
+# Музика
 music_menu = res('music/Sun Araw - Horse Steppin _ Hotline Miami OST.mp3')
 music_easy = res('music/Hotline Miami Soundtrack ~ Crystals [QXkSYSPTpj4].mp3')
 music_medium = res('music/Perturbator - Miami Disco _ Hotline Miami OST.mp3')
@@ -75,7 +91,7 @@ else:
     goal_sound = None
     lose_sound = None
 
-# добавляем один экземпляр hover-звука и канал для контроля воспроизведения
+# додаємо один екземпляр hover-звуку та канал для контролю відтворення
 if sound_enabled:
     try:
         hover_sound = pygame.mixer.Sound(res('music/zvuk-perezariadki-ak47.mp3'))
@@ -85,10 +101,10 @@ else:
     hover_sound = None
 hover_channel = None
 
-# флаг — последнее взаимодействие было с клавиатуры (используется для звука наведения)
+# прапорець — остання взаємодія була з клавіатури (використовується для звуку наведення)
 last_input_was_keyboard = False
 
-# добавляем глобальный click_sound и используем его в Button.press
+# додаємо глобальний click_sound і використовуємо його в Button.press
 if sound_enabled:
     try:
         click_sound = pygame.mixer.Sound(res('music/odinochn-vystrel-aks.mp3'))
@@ -97,19 +113,19 @@ if sound_enabled:
 else:
     click_sound = None
 
-# -------------------- ФУНКЦИИ --------------------
+# -------------------- ФУНКЦІЇ --------------------
 def play_music(track):
     if not sound_enabled:
         return
     try:
         pygame.mixer.music.load(track)
         pygame.mixer.music.play(-1)
-        # Use settings_volume if available so UI slider affects all music
+        # Використовуємо settings_volume, якщо він є, щоб слайдер впливав на музику
         vol = globals().get('settings_volume', 0.2)
         try:
             pygame.mixer.music.set_volume(vol)
         except Exception:
-            # fallback to default
+            # запасний варіант на випадок помилки
             try:
                 pygame.mixer.music.set_volume(0.2)
             except Exception:
@@ -128,30 +144,30 @@ def draw_text(text, font, color, x, y, center=False):
 
 def draw_board():
     screen.fill(background)
-    # верхний бордер (разделитель для HUD)
+    # верхній бордер (роздільник для HUD)
     pygame.draw.line(screen, white, (0, top_border_y), (screen_width, top_border_y))
-    # нижний бордер — от которого мяч будет отскакивать, чтобы не проваливался
+    # нижній бордер — від якого м'яч буде відскакувати, щоб не провалювався
     pygame.draw.line(screen, white, (0, bottom_border_y), (screen_width, bottom_border_y))
 
 def fade_while_channel_busy(channel):
-    """Показывает плавное затемнение экрана пока играет channel (или хотя бы длительность click_sound)."""
+    """Показує плавне затемнення екрану поки відтворюється channel (або принаймні довжина click_sound)."""
     start = pygame.time.get_ticks()
     duration_ms = int(click_sound.get_length() * 1000)
     overlay = pygame.Surface((screen_width, screen_height))
     overlay.fill((0, 0, 0))
     clock = pygame.time.Clock()
 
-    # Если channel == None — всё равно делаем затемнение по длине click_sound
+    # Якщо channel == None — все одно робимо затемнення за довжиною click_sound
     while (channel is not None and channel.get_busy()) or (pygame.time.get_ticks() - start < duration_ms):
         elapsed = pygame.time.get_ticks() - start
         progress = min(1.0, elapsed / duration_ms) if duration_ms > 0 else 1.0
         alpha = int(progress * 255)
         overlay.set_alpha(alpha)
-        # Наложим поверх текущего экрана
+        # Накладаємо поверх поточного екрану
         screen.blit(overlay, (0, 0))
         pygame.display.update()
         clock.tick(60)
-    # Гарантируем полностью чёрный финальный кадр перед сменой состояния
+    # Гарантуємо повністю чорний фінальний кадр перед зміною стану
     overlay.set_alpha(255)
     screen.blit(overlay, (0, 0))
     pygame.display.update()
@@ -177,7 +193,7 @@ def load_sequence_frames(folder, prefix, start, end, digits=3, ext='.jpg'):
         name = f"{prefix}{i:0{digits}d}{ext}"
         path = os.path.join(folder, name)
         if not os.path.isfile(path):
-            # пропускаем отсутствующие файлы, но продолжаем
+            # пропускаємо відсутні файли, але продовжуємо
             continue
         try:
             img = pygame.image.load(path).convert_alpha()
@@ -188,18 +204,18 @@ def load_sequence_frames(folder, prefix, start, end, digits=3, ext='.jpg'):
     return frames
 
 def difficulty_ball_speed(diff):
-    # Возвращает базовую скорость мяча для данной сложности.
+    # Повертає базову швидкість м'яча для даної складності.
     if diff == "easy":
         return 4
     if diff == "medium":
         return 5
     if diff == "hard":
         return 6
-    # по умолчанию (PVP или неопределённая) — средняя
+    # за замовчуванням (PVP або невизначена) — середня
     return 5
 
 def run_intro():
-    # используем папку Background внутри проекта
+    # використовуємо папку Background всередині проєкту
     frames = load_background_frames(res('Background'))
     try:
         intro_sound = pygame.mixer.Sound(res('music/why-did-you-make-me-do-this-made-with-Voicemod.mp3'))
@@ -209,11 +225,11 @@ def run_intro():
     clock = pygame.time.Clock()
     start = pygame.time.get_ticks()
 
-    # параметры: fade-in 2.5s, звук стартует через 1s, fade-out 4s
+    # параметри: fade-in 2.5s, звук стартує через 1s, fade-out 4s
     fade_in_ms = 2000
     sound_start_delay = 1000
     fade_out_ms = 1000
-    frame_interval = 100  # ms между кадрами анимации
+    frame_interval = 100  # ms між кадрами анімації
 
     last_frame_time = start
     fi = 0
@@ -233,18 +249,18 @@ def run_intro():
         now = pygame.time.get_ticks()
         elapsed = now - start
 
-        # обновляем индекс фрейма анимации (анимация продолжается всегда)
+        # оновлюємо індекс кадру анімації (анімація триває завжди)
         if frames and (now - last_frame_time) >= frame_interval:
             fi = (fi + 1) % len(frames)
             last_frame_time = now
 
-        # отрисовка текущего фрейма
+        # відмалюємо поточний кадр
         if frames:
             screen.blit(frames[fi], (0, 0))
         else:
             screen.fill(background)
 
-        # fade-in: overlay alpha от 255 -> 0 за fade_in_ms
+        # fade-in: overlay alpha від 255 -> 0 за fade_in_ms
         if elapsed < fade_in_ms:
             progress = elapsed / fade_in_ms
             alpha = int(255 * (1.0 - progress))
@@ -258,7 +274,7 @@ def run_intro():
         pygame.display.update()
         clock.tick(60)
 
-        # Запуск звука после задержки sound_start_delay (один раз)
+        # Запуск звуку після затримки sound_start_delay (один раз)
         if not sound_started and elapsed >= sound_start_delay:
             if intro_sound:
                 ch = intro_sound.play()
@@ -267,7 +283,7 @@ def run_intro():
                 sound_start_time = pygame.time.get_ticks()
             sound_started = True
 
-        # Если звук стартовал — ждём его окончания, затем делаем fade-out (анимация продолжается)
+        # Якщо звук стартував — чекаємо його закінчення, потім робимо fade-out (анімація триває)
         if sound_started:
             if ch:
                 sound_done = not ch.get_busy()
@@ -276,7 +292,7 @@ def run_intro():
 
             if sound_done:
                 fade_start = pygame.time.get_ticks()
-                # подготовим overlay для fade-out
+                # підготуємо overlay для fade-out
                 out_overlay = pygame.Surface((screen_width, screen_height))
                 out_overlay.fill((0, 0, 0))
                 while True:
@@ -287,7 +303,7 @@ def run_intro():
 
                     tnow = pygame.time.get_ticks()
 
-                    # продолжаем анимацию кадров во время fade-out
+                    # продовжуємо анімацію кадрів під час fade-out
                     if frames and (tnow - last_frame_time) >= frame_interval:
                         fi = (fi + 1) % len(frames)
                         last_frame_time = tnow
@@ -308,12 +324,12 @@ def run_intro():
                         running_intro = False
                         break
 
-# -------------------- КЛАССЫ --------------------
+# -------------------- КЛАСИ --------------------
 class Button:
     def __init__(self, x, y, w, h, text, image_path=None):
         self.rect = Rect(x, y, w, h)
         self.text = text
-        # Поддержка кнопок с изображением (иконка в центре)
+        # Підтримка кнопок з зображенням (іконка в центрі)
         self.image = None
         if image_path:
             try:
@@ -323,27 +339,27 @@ class Button:
             except Exception:
                 self.image = None
         self.hovered_last = False
-        self.active_last = False  # запоминаем предыдущее состояние подсветки/наведения
+        self.active_last = False  # запам'ятовуємо попередній стан підсвітки/наведення
         self.pressed_until = 0  # ms, время окончания эффекта нажатия
         self.press_duration = 120  # длительность эффекта (ms)
 
-        # плавный переход цвета
+        # плавний перехід кольору
         self.current_color = white
         self.target_color = white
         self.color_smooth = 0.12  # 0..1 - скорость интерполяции (чем больше, тем быстрее)
 
-        # джиттер в спокойном состоянии
+        # джиттер у спокійному стані
         self.jitter_phase = random.random() * math.pi * 2
-        self.jitter_amp = 2.0  # пикселей
-        self.jitter_freq = 3.0  # кол-во колебаний в секунду
+        self.jitter_amp = 2.0  # пікселів
+        self.jitter_freq = 3.0  # кількість коливань в секунду
 
     def press(self, duration=None):
-        # Запуск визуального эффекта нажатия и проигрыш клика
+        # Запуск візуального ефекту натискання і відтворення кліку
         if duration is None:
             duration = self.press_duration
         self.pressed_until = pygame.time.get_ticks() + duration
         try:
-            # играем заранее загруженный click_sound и возвращаем канал
+            # відтворюємо заздалегідь завантажений click_sound і повертаємо канал
             if click_sound:
                 ch = click_sound.play()
                 if ch:
@@ -353,58 +369,58 @@ class Button:
             pass
         return None
 
-    # добавлен параметр highlight для подсветки при навигации клавиатурой
+    # доданий параметр highlight для підсвітки при навігації клавіатурою
     def draw(self, highlight=False):
-        # теперь игнорируем положение мыши — активность определяется только параметром highlight
+        # тепер ігноруємо положення миші — активність визначається лише параметром highlight
         active = bool(highlight)
         now = pygame.time.get_ticks()
         pressed = now < self.pressed_until
 
-        # если активна подсветка — целевой цвет плавно меняется по RGB-циклу (эффект RGB-подсветки)
+        # якщо активна підсвітка — цільовий колір плавно змінюється по RGB-циклу (ефект RGB-підсвітки)
         if active:
             tsec = now / 1000.0
-            freq = 1.0  # частота смены цветов (Hz) — можно увеличить для быстрой смены
-            # фазовый сдвиг для R/G/B чтобы получить RGB-циклирование
+            freq = 1.0  # частота зміни кольорів (Hz) — можна збільшити для швидшої зміни
+            # фазовий зсув для R/G/B щоб отримати RGB-циклювання
             r = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 0.0)))
             g = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 2.0)))
             b = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + 4.0)))
             self.target_color = (r, g, b)
         else:
-            # в спокойном состоянии возвращаемся к белому
+            # у спокійному стані повертаємося до білого
             self.target_color = white
 
-        # интерполируем текущий цвет к целевому (плавный переход)
+        # інтерполюємо поточний колір до цільового (плавний перехід)
         def lerp_color(a, b, t):
             return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
         self.current_color = lerp_color(self.current_color, self.target_color, self.color_smooth)
 
-        # вычисляем джиттер (только в спокойном состоянии, когда не активна и не нажата)
+        # обчислюємо джиттер (лише у спокійному стані, коли не активна і не натиснута)
         jitter_x = jitter_y = 0
         if not active and not pressed:
             tsec = now / 1000.0
             jitter_x = math.sin(tsec * self.jitter_freq + self.jitter_phase) * self.jitter_amp
-            # мелкий вертикальный сдвиг с меньшей амплитудой
+            # дрібне вертикальне зміщення з меншою амплітудою
             jitter_y = math.sin(tsec * (self.jitter_freq * 1.3) + self.jitter_phase * 0.7) * (self.jitter_amp * 0.6)
 
-        # 3D offset: тень смещена, при нажатии тень меньше и прямоугольник смещён вниз-вправо
+        # 3D зсув: тінь зміщена, при натисканні тінь менша і прямокутник зміщений вниз-вправо
         shadow_offset = (6, 6) if not pressed else (2, 2)
         press_offset = (0, 0) if not pressed else (2, 2)
 
-        # отрисовка тени (учитываем джиттер)
+        # відмалювати тінь (беремо до уваги джиттер)
         shadow_rect = self.rect.move(shadow_offset[0] + int(jitter_x), shadow_offset[1] + int(jitter_y))
         pygame.draw.rect(screen, (30, 30, 30), shadow_rect, border_radius=12)
 
-        # основной цвет (берём текущий интерполированный)
+        # основний колір (беремо поточний інтерпольований)
         base_color = self.current_color
-        # при нажатии немного затемняем
+        # при натисканні трохи затемнюємо
         if pressed:
             base_color = tuple(max(0, c - 30) for c in base_color)
 
-        # применяем press_offset + джиттер
+        # застосовуємо press_offset + джиттер
         draw_rect = self.rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
         pygame.draw.rect(screen, base_color, draw_rect, border_radius=10)
 
-        # верхняя/левая подсветка и нижняя/правая тень для объёмного вида
+        # верхня/ліва підсвітка і нижня/права тінь для об'ємного вигляду
         highlight_color = tuple(min(255, c + 40) for c in base_color)
         pygame.draw.line(screen, highlight_color, (draw_rect.left+4, draw_rect.top+2), (draw_rect.right-4, draw_rect.top+2), 3)
         pygame.draw.line(screen, highlight_color, (draw_rect.left+2, draw_rect.top+4), (draw_rect.left+2, draw_rect.bottom-4), 3)
@@ -412,19 +428,19 @@ class Button:
         pygame.draw.line(screen, dark_color, (draw_rect.left+4, draw_rect.bottom-2), (draw_rect.right-4, draw_rect.bottom-2), 3)
         pygame.draw.line(screen, dark_color, (draw_rect.right-2, draw_rect.top+4), (draw_rect.right-2, draw_rect.bottom-4), 3)
 
-        # Если есть картинка — показываем её центрированной на кнопке
+        # Якщо є зображення — показуємо його центрованим на кнопці
         if self.image:
             img_rect = self.image.get_rect(center=draw_rect.center)
             img_rect = img_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
             screen.blit(self.image, img_rect)
         else:
-            # текст — сдвигаем при нажатии для ощущения глубины
+            # текст — зміщуємо при натисканні для відчуття глибини
             text_img = menu_font.render(self.text, True, black)
             text_rect = text_img.get_rect(center=draw_rect.center)
             text_rect = text_rect.move(press_offset[0] + int(jitter_x), press_offset[1] + int(jitter_y))
             screen.blit(text_img, text_rect)
 
-        # Проигрываем звук только при переходе в состояние active через highlight (клавиатура)
+        # Відтворюємо звук тільки при переході в стан active через highlight (клавіатура)
         global hover_channel
         if active and not self.active_last and last_input_was_keyboard:
             try:
@@ -435,7 +451,7 @@ class Button:
             except Exception:
                 pass
 
-        # обновляем состояния для следующего кадра
+        # оновлюємо стани для наступного кадру
         self.active_last = active
 
     def is_clicked(self, pos):
@@ -447,11 +463,11 @@ class Paddle:
         self.original_height = self.rect.height
         self.speed = 5
         self.reaction_time = 0
-        self.large_until = None  # время окончания увеличения ракетки (ms)
+        self.large_until = None  # час завершення збільшення ракетки (ms)
 
     def move(self, up_key, down_key):
         keys = pygame.key.get_pressed()
-        # лимитирование по верхнему/нижнему бордеру
+        # обмеження по верхньому/нижньому бордеру
         if keys[up_key] and self.rect.top > top_border_y:
             self.rect.move_ip(0, -self.speed)
         if keys[down_key] and self.rect.bottom < bottom_border_y:
@@ -473,7 +489,7 @@ class Paddle:
             self.rect.move_ip(0, -int(self.speed * speed_factor))
 
     def update(self):
-        # если время увеличенной ракетки прошло — вернуть оригинальный размер
+        # якщо час збільшеної ракетки минув — повернути оригінальний розмір
         if self.large_until and pygame.time.get_ticks() >= self.large_until:
             center = self.rect.center
             self.rect.height = self.original_height
@@ -556,7 +572,7 @@ class Ball:
                 try:
                     self._reflect_from_paddle(p, name)
                 except Exception:
-                    # fallback — простое инвертирование
+                    # запасний варіант — просте інвертування
                     self.speed_x = -self.speed_x
                     self.last_hit = name
 
@@ -868,12 +884,12 @@ while running:
             if slider_dragging:
                 slider_dragging = False
 
-        # Если ждём нажатия клавиши после гола — обрабатываем специально:
+        # Якщо чекаємо натискання клавіші після гола — обробляємо спеціально:
         if waiting_for_key and event.type == KEYDOWN:
             # продолжение игры — только по пробелу
             if event.key == K_SPACE:
                 waiting_for_key = False
-                # скрываем подсветку кнопок
+                # ховаємо підсвітку кнопок
                 last_input_was_keyboard = True
             else:
                 # навигация между Back / Exit клавишами A/D
@@ -910,7 +926,7 @@ while running:
             # (звук наведения будет воспроизводиться только если этот флаг True)
             last_input_was_keyboard = True
 
-            # Если мы в меню настроек — обрабатываем клавиши тут (ESC — назад, стрелки — громкость)
+            # Якщо ми в меню налаштувань — обробляємо клавіші тут (ESC — назад, стрілки — гучність)
             if state == "settings":
                 if event.key == K_ESCAPE:
                     state = "menu"
@@ -1018,7 +1034,7 @@ while running:
 
     # -------------------- МЕНЮ --------------------
     if state == "menu":
-        # отрисовка анимированного фона для главного меню (если кадры загружены)
+        # відмалювання анімованого фону для головного меню (якщо кадри завантажені)
         if backmain_frames:
             now = pygame.time.get_ticks()
             if now - backmain_last_frame_time >= backmain_frame_interval:
@@ -1026,7 +1042,7 @@ while running:
                 backmain_last_frame_time = now
             screen.blit(backmain_frames[backmain_frame_index], (0, 0))
         else:
-            # fallback — обычный фон
+            # запасний варіант — звичайний фон
             screen.fill(background)
 
         menu_timer += 1
@@ -1072,7 +1088,7 @@ while running:
         rotated_img = pygame.transform.rotate(text_surf, swing_angle)
         rotated_rect = rotated_img.get_rect(center=(300, 120 + pulse_offset))
         screen.blit(rotated_img, rotated_rect)
-        # подсвечиваем выбранную кнопку
+        # підсвічуємо вибрану кнопку
         btn_ai.draw(highlight=(menu_index==0))
         btn_pvp.draw(highlight=(menu_index==1))
         btn_exit.draw(highlight=(menu_index==2))
@@ -1081,7 +1097,7 @@ while running:
 
     # -------------------- ВЫБОР СЛОЖНОСТИ --------------------
     elif state == "difficulty":
-        # отрисовка анимированного фона для меню выбора сложности (если кадры загружены)
+        # відмалювання анімованого фону для меню вибору складності (якщо кадри завантажені)
         if backdiff_frames:
             now = pygame.time.get_ticks()
             if now - backdiff_last_frame_time >= backdiff_frame_interval:
@@ -1089,54 +1105,54 @@ while running:
                 backdiff_last_frame_time = now
             screen.blit(backdiff_frames[backdiff_frame_index], (0, 0))
         else:
-            # fallback — обычный фон
+            # запасний варіант — звичайний фон
             screen.fill(background)
 
         menu_timer += 1
         pulse_offset = math.sin(menu_timer * 0.05) * menu_pulse_amplitude
         swing_angle = math.sin(menu_timer * 0.05) * menu_swing_angle
-        # По-буквенная RGB-подсветка заголовка "Choose Your Way"
+        # По-кожній літері RGB-підсвітка заголовка "Choose Your Way"
         title = "Choose Your Way"
         now = pygame.time.get_ticks()
         tsec = now / 1000.0
-        # подготовим поверхности для каждой буквы с индивидуальным цветом и чёрным контуром
+        # підготуємо поверхні для кожної літери з індивідуальним кольором і чорним контуром
         letter_surfs = []
         total_w = 0
         max_h = 0
         for i, ch in enumerate(title):
-            # фазовый сдвиг по индексу для красивого градиента
+            # фазовий зсув по індексу для гарного градієнта
             phase = i * 0.25
             freq = 1.0
             r = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 0.0)))
             g = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 2.0)))
             b = int(100 + 155 * (0.5 + 0.5 * math.sin(2 * math.pi * freq * tsec + phase + 4.0)))
             col = (r, g, b)
-            # рендерим букву цветом и чёрный контур (несколько смещений)
+            # рендеримо літеру кольором і чорний контур (кілька зміщень)
             color_surf = font_big.render(ch, True, col).convert_alpha()
             bw, bh = color_surf.get_size()
-            # создаём поверхность с запасом под контур
+            # створюємо поверхню з запасом під контур
             surf = pygame.Surface((bw + 4, bh + 4), pygame.SRCALPHA)
             black_surf = font_big.render(ch, True, black).convert_alpha()
-            # смещения для контура (толщина обводки)
+            # зміщення для контуру (товщина обвідки)
             offsets = [(-2,0),(2,0),(0,-2),(0,2),(-1,-1),(1,-1),(-1,1),(1,1)]
             for ox, oy in offsets:
                 surf.blit(black_surf, (2 + ox, 2 + oy))
-            # центральная цветная буква
+            # центральна кольорова літера
             surf.blit(color_surf, (2, 2))
             letter_surfs.append(surf)
             total_w += surf.get_width()
             max_h = max(max_h, surf.get_height())
-        # соберём строку в прозрачную поверхность
+        # зберемо рядок у прозору поверхню
         text_surf = pygame.Surface((total_w, max_h), pygame.SRCALPHA)
         x = 0
         for surf in letter_surfs:
             text_surf.blit(surf, (x, 0))
             x += surf.get_width()
-        # поворот и центрирование как раньше
+        # поворот і центрування як раніше
         rotated_img = pygame.transform.rotate(text_surf, swing_angle)
         rotated_rect = rotated_img.get_rect(center=(300, 120 + pulse_offset))
         screen.blit(rotated_img, rotated_rect)
-        # подсвечиваем выбранную кнопку сложности
+        # підсвічуємо вибрану кнопку складності
         btn_easy.draw(highlight=(diff_index==0))
         btn_med.draw(highlight=(diff_index==1))
         btn_hard.draw(highlight=(diff_index==2))
@@ -1197,14 +1213,14 @@ while running:
             draw_text(f"P1: {player_score}   AI: {cpu_score}", font, white, 200, 10)
 
 
-        # Если ждём нажатия клавиши, просто выводим текст
+        # Якщо чекаємо натискання клавіші, просто виводимо текст
         if waiting_for_key:
             draw_text("Press SPACE to continue...", font, white, screen_width//2, screen_height//2, center=True)
-            # рисуем кнопки Back и Exit под текстом (подсветка по pause_index)
+            # малюємо кнопки Back і Exit під текстом (підсвітка за pause_index)
             btn_back_pause.draw(highlight=(pause_index==0))
             btn_exit_pause.draw(highlight=(pause_index==1))
         else:
-            # Управление игроками
+            # Управління гравцями
             if mode == "pvp":
                 player_paddle.move(K_w, K_s)
                 cpu_paddle.move(K_UP, K_DOWN)
@@ -1212,16 +1228,16 @@ while running:
                 player_paddle.move(K_w, K_s)
                 cpu_paddle.ai(pong, difficulty)
 
-            # обновляем состояния ракеток (в т.ч. таймеры увеличения)
+            # оновлюємо стани ракеток (в т.ч. таймери збільшення)
             player_paddle.update()
             cpu_paddle.update()
 
-            # Рисуем объекты
+            # Малюємо об'єкти
             player_paddle.draw()
             cpu_paddle.draw()
             pong.draw()
 
-            # Бустеры
+            # Бустери
             booster_timer += 1
             if booster_timer > 300:
                 boosters.append(Booster())
@@ -1278,7 +1294,7 @@ while running:
                 if not w.visible:
                     walls.remove(w)
 
-            # Движение мяча
+            # Рух м'яча
             winner = pong.move([(player_paddle, "player"), (cpu_paddle, "cpu")], boosters, walls)
             if winner != 0:
                 waiting_for_key = True  # ждём нажатия клавиши перед продолжением
@@ -1291,11 +1307,19 @@ while running:
                 pygame.display.update()
                 if winner == 1:
                     cpu_score += 1
-                    goal_sound.play()
+                    try:
+                        if goal_sound:
+                            goal_sound.play()
+                    except Exception:
+                        pass
                     draw_text("YOU LOST!", font_big, white, 300, 250, center=True)
                 else:
                     player_score += 1
-                    lose_sound.play()
+                    try:
+                        if lose_sound:
+                            lose_sound.play()
+                    except Exception:
+                        pass
                     draw_text("YOU SCORED!", font_big, white, 300, 250, center=True)
                 pygame.display.update()
                 pygame.time.wait(2000)
@@ -1309,6 +1333,82 @@ while running:
 
                 waiting_for_key = True  # ждём нажатия клавиши перед продолжением
 
+
+    # Накладання повідомлення про відсутність гарнітури (внизу зліва)
+    if headset_warning and headset_warning_start:
+        try:
+            now = pygame.time.get_ticks()
+            elapsed = now - headset_warning_start
+            # якщо ще триває період показу — повна непрозорість, таймер лінії зменшується
+            if elapsed < HEADSET_WARNING_DISPLAY:
+                display_progress = max(0.0, min(1.0, float(elapsed) / HEADSET_WARNING_DISPLAY))
+                alpha = 255
+                timer_progress = 1.0 - display_progress
+
+                text = "You have no headset for sound"
+                txt_surf = font.render(text, True, (255, 255, 255))
+                pad_x = 12
+                pad_y = 10
+                box_w = txt_surf.get_width() + pad_x * 2
+                box_h = txt_surf.get_height() + pad_y * 2
+                bx = 10
+                by = screen_height - box_h - 10
+
+                box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+                box_surf.fill((20, 20, 20, alpha))
+                # невелика внутрішня тінь (темніша прямокутна вставка)
+                inner = pygame.Surface((box_w - 4, box_h - 4), pygame.SRCALPHA)
+                inner.fill((30, 30, 30, max(0, alpha - 30)))
+                box_surf.blit(inner, (2, 2))
+
+                box_surf.blit(txt_surf, (pad_x, pad_y))
+
+                # лінія-таймер (стягується справа наліво під час показу)
+                full_bar_w = box_w - pad_x * 2
+                bar_h = 6
+                curr_w = int(full_bar_w * timer_progress)
+                if curr_w < 1:
+                    curr_w = 0
+                if curr_w > 0:
+                    bar_surf = pygame.Surface((curr_w, bar_h), pygame.SRCALPHA)
+                    # робимо смужку напівпрозорою і прив'язуємо до alpha
+                    bar_surf.fill((255, 255, 255, max(30, int(alpha * 0.9))))
+                    box_surf.blit(bar_surf, (pad_x, box_h - pad_y - bar_h))
+
+                # тонка тінь під лінією
+                shadow = pygame.Surface((full_bar_w, 2), pygame.SRCALPHA)
+                shadow.fill((0, 0, 0, max(20, int(alpha * 0.6))))
+                # відмалювати блок і тінь на екрані
+                screen.blit(box_surf, (bx, by))
+                screen.blit(shadow, (bx + pad_x, by + box_h - pad_y + 6))
+            # якщо період показу завершився — запускаємо затемнення на окремому інтервалі
+            elif elapsed < HEADSET_WARNING_DISPLAY + HEADSET_WARNING_FADE:
+                fade_elapsed = elapsed - HEADSET_WARNING_DISPLAY
+                fade_progress = max(0.0, min(1.0, float(fade_elapsed) / HEADSET_WARNING_FADE))
+                alpha = int(255 * (1.0 - fade_progress))
+
+                text = "You have no headset for sound"
+                txt_surf = font.render(text, True, (255, 255, 255))
+                pad_x = 12
+                pad_y = 10
+                box_w = txt_surf.get_width() + pad_x * 2
+                box_h = txt_surf.get_height() + pad_y * 2
+                bx = 10
+                by = screen_height - box_h - 10
+
+                box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+                box_surf.fill((20, 20, 20, alpha))
+                inner = pygame.Surface((box_w - 4, box_h - 4), pygame.SRCALPHA)
+                inner.fill((30, 30, 30, max(0, alpha - 30)))
+                box_surf.blit(inner, (2, 2))
+                box_surf.blit(txt_surf, (pad_x, pad_y))
+
+                # під час затемнення лінія вже закінчилась — не малюємо її
+                screen.blit(box_surf, (bx, by))
+            else:
+                headset_warning = False
+        except Exception:
+            headset_warning = False
 
     pygame.display.update()
 
