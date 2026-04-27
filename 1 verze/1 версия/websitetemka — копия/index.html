@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home</title>
+    <link rel="stylesheet" href="static/styles/style.css" />
+</head>
+
+<body>
+
+    <div class="parallax">
+        <div class="layer layer-back"></div>
+        <div class="layer layer-mid"></div>
+        <div class="layer layer-front"></div>
+    </div>
+
+    <nav class="navbar">
+        <ul>
+            <li><a href="#">HOME</a></li>
+            <li><a href="index copy.html">ABOUT GAME</a></li>
+            <li class="logo"><img src="static/images/2c83e0e75e94d6ebbc9fee565717c241.png" alt=""></li>
+        </ul>
+    </nav>
+
+    <div class="categor">
+        <div class="stars"></div>
+        <h3>Categories</h3>
+        <ul>
+            <li><a href="#"> Skupinovy projekt</a></li>
+            <li><a href="#">IT3</a></li>
+            <li><a href="#">HRA</a></li>
+        </ul>
+    </div>
+
+    <header class="header">
+        <div class="header-cont">
+            <h1>Star Line Miami</h1>
+            <div class="tags">
+                <span>Stars</span>
+                <span>Hotline Miami</span>
+                <span>Vesmir</span>
+            </div>
+            <div class="authors">
+                <p>Artem Diahovets</p>
+                <p>Andrii Hamanilov</p>
+            </div>
+            
+        </div>
+    </header>
+
+
+
+    
+    <div class="game-section">
+        <div class="game-window">
+            <div class="game-header">
+                <span>🎮 StarLineMiami // HRA</span>
+                <span class="game-status">PŘIPRAVENO</span>
+            </div>
+            <div class="game-container">
+                <div class="game-placeholder">
+                    <p>.</p>
+                    <p class="game-sub">1v1 / AI MÓD</p>
+                </div>
+            </div>
+        </div>
+        <div class="game-description">
+            <p>Hra je určena pro dva hráče na jedné klávesnici nebo proti AI. Levý hráč ovládá pálku klávesami <strong>W/S</strong>, pravý hráč <strong>ŠIPKAMI</strong>. Míček se postupně zrychluje a ve hře se objevují bonusy pro větší dynamiku.</p>
+        </div>
+    </div>
+
+    <footer class="foot">
+        <p>&copy;2026 AndArtGame . Dont contact us.</p>
+    </footer>
+
+    <script>
+        document.addEventListener("mousemove", (e) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 10;
+            const y = (e.clientY / window.innerHeight - 0.5) * 10;
+
+            document.querySelectorAll(".platform, .categor, .navbar")
+                .forEach(el => {
+                    el.style.transform = `translate(${x}px, ${y}px)`;
+                });
+        });
+    </script>
+
+</body>
+</html>

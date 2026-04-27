@@ -1,0 +1,392 @@
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: black;
+    margin: 0;
+    background: #050510;
+    font-family: Arial, sans-serif;
+    color: white;
+    overflow-x: hidden;
+}
+
+/* ---------- HEADER ---------- */
+.header {
+    height: 80vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at center, #0a0a2a, #000);
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 20px;
+    color: #ffffff;
+}
+
+.header-cont {
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 60px;
+    color: rgb(255, 77, 163);
+    text-shadow:
+        0 0 10px rgb(255, 255, 255),
+        0 0 20px rgb(255, 255, 255),
+        0 0 40px rgb(255, 0, 247);
+    animation: flicker 2s infinite alternate;
+}
+
+.tags {
+    margin: 30px 0;
+}
+
+.tags span {
+    margin: 0 10px;
+    padding: 5px 15px;
+    border: 1px solid magenta;
+    border-radius: 20px;
+    color: magenta;
+    text-shadow: 0 0 10px magenta;
+    transition: 0.3s;
+}
+
+.tags span:hover {
+    background: magenta;
+    color: black;
+    box-shadow: 0 0 15px magenta;
+}
+
+.authors p {
+    margin: 5px;
+    color: #aaa;
+}
+
+@keyframes flicker {
+    from { opacity: 0.8; }
+    to { opacity: 1; }
+}
+
+
+.navbar {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px);
+    border: 2px solid #ff4fa3;
+    margin: 15px;
+    padding: 18px;
+    transform: scale(1.05);
+    transform-origin: top center;
+    box-shadow:
+        0 0 10px #ff4fa3,
+        0 0 25px #ff4fa3,
+        0 0 50px rgba(255, 79, 163, 0.6);
+    border-radius: 0;
+    animation: neonPulse 3s infinite;
+}
+
+.navbar ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.navbar ul li {
+    display: inline;
+    margin-right: 20px;
+    padding: 10px;
+    width: 500px;
+}
+
+.navbar ul li a {
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-decoration: none;
+    color: rgb(255, 255, 255);
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    transition: background-color 0.3s;
+}
+
+@keyframes neonPulse {
+    0% { box-shadow: 0 0 10px #ff4fa3, 0 0 25px #ff4fa3; }
+    50% { box-shadow: 0 0 20px #ff4fa3, 0 0 60px #ff4fa3; }
+    100% { box-shadow: 0 0 10px #ff4fa3, 0 0 25px #ff4fa3; }
+}
+
+
+.categor {
+    width: 200px;
+    height: 300vh;
+    float: left;
+    margin: 15px;
+    background: rgba(20, 20, 40, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid white;
+    border-right: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+        0 0 10px #ff4fa3,
+        0 0 25px #ff4fa3,
+        0 0 50px rgba(255, 79, 163, 0.6);
+    border-radius: 0;
+    position: relative;
+    overflow: hidden;
+    padding: 20px;
+    animation: neonPulse 3s infinite;
+}
+
+.categor h3 {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    color: white;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 2;
+}
+
+.categor ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+.categor li {
+    margin: 8px 0;
+}
+
+.categor a {
+    display: block;
+    padding: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    color: white;
+    text-decoration: none;
+    border: 2px solid white;
+    border-radius: 10px;
+    transition: 0.3s;
+}
+
+.categor a:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.03);
+    box-shadow: 0 0 8px white;
+}
+
+.stars {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: black;
+    background-image:
+        radial-gradient(2px 2px at 20px 30px, rgb(223, 21, 165), transparent),
+        radial-gradient(2px 2px at 60px 80px, white, transparent),
+        radial-gradient(2px 2px at 100px 120px, rgb(212, 33, 225), transparent),
+        radial-gradient(2px 2px at 140px 200px, white, transparent),
+        radial-gradient(2px 2px at 60px 80px, rgb(255, 139, 139), transparent),
+        radial-gradient(2px 2px at 100px 120px, rgb(212, 33, 225), transparent),
+        radial-gradient(2px 2px at 140px 200px, white, transparent),
+        radial-gradient(2px 2px at 50px 300px, rgb(246, 122, 175), transparent);
+    background-size: 200px 400px;
+    animation: fall 8s linear infinite;
+}
+
+@keyframes fall {
+    from { background-position: 0 -200px; }
+    to { background-position: 0 200px; }
+}
+
+
+
+
+
+.wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.card {
+    width: 520px;
+    height: 400px;
+    perspective: 1000px;
+}
+
+.inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+}
+
+.card:hover .inner {
+    transform: rotateY(180deg);
+}
+
+.front, .back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 25px;
+    border-radius: 25px;
+    backface-visibility: hidden;
+    border: 2px solid rgb(209, 72, 182);
+    color: rgb(255, 255, 255);
+    text-shadow:
+        0 0 5px rgb(255, 255, 255),
+        0 0 10px rgb(255, 255, 255),
+        0 0 20px rgb(255, 255, 255);
+}
+
+.front {
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow:
+        0 0 10px rgb(220, 138, 197),
+        inset 0 0 10px rgb(255, 160, 253);
+}
+
+.back {
+    background: rgba(0, 0, 0, 0.8);
+    transform: rotateY(180deg);
+    box-shadow:
+        0 0 20px magenta,
+        inset 0 0 15px magenta;
+}
+
+
+.platform {
+    margin-left: 270px;
+    margin-right: 40px;
+    margin-top: 90px;
+    text-align: center;
+    padding: 50px;
+    height: 200px;
+    background: linear-gradient(145deg, #e7008f, #ff0a95);
+    border-radius: 20px;
+    color: white;
+    box-shadow:
+        10px 10px 20px rgba(0, 0, 0, 0.6),
+        -5px -5px 15px rgba(255, 255, 255, 0.05);
+    transform: perspective(800px) rotateX(2deg);
+    transition: 0.3s;
+}
+
+.platform:hover {
+    transform: perspective(800px) rotateX(0deg) scale(1.01);
+}
+
+
+.game-section {
+    margin-left: 270px;
+    margin-right: 40px;
+    margin-top: 40px;
+}
+
+.game-window {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    border: 2px solid #ff4fa3;
+    box-shadow:
+        0 0 20px #ff4fa3,
+        0 0 45px rgba(255, 79, 163, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: rgba(255, 79, 163, 0.15);
+    border-bottom: 1px solid #ff4fa3;
+    font-weight: bold;
+    letter-spacing: 2px;
+    font-size: 0.9rem;
+}
+
+.game-status {
+    color: #00ffc3;
+    text-shadow: 0 0 8px #00ffc3;
+    animation: flicker 1.5s infinite alternate;
+}
+
+.game-container {
+    padding: 30px;
+    min-height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.game-placeholder {
+    width: 100%;
+    height: 280px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px dashed #ff4fa388;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 1.8rem;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px #ff4fa3;
+    color: #fff;
+}
+
+.game-sub {
+    font-size: 1rem !important;
+    margin-top: 10px;
+    color: #ff4fa3 !important;
+    letter-spacing: 2px;
+}
+
+.game-description {
+    margin-top: 20px;
+    padding: 20px 25px;
+    background: rgba(10, 10, 30, 0.5);
+    border: 1px solid #ff4fa388;
+    border-radius: 10px;
+    color: #ddd;
+    line-height: 1.7;
+    font-size: 0.95rem;
+}
+
+.game-description strong {
+    color: #ff4fa3;
+}
+
+.foot {
+    width: 100%;
+    text-align: center;
+    padding: 30px 0;
+    margin-top: 50px;
+    color: #aaa;
+    font-size: 0.9rem;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+
+.logo {
+    margin-left: auto;
+}
+
+.logo img {
+    width: 25px;
+    height: auto;
+}
