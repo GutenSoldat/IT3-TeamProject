@@ -46,15 +46,11 @@ body::before {
     radial-gradient(2px 2px at 340px 170px, #ffffff, transparent),
     
     
-
-
-
+    
     radial-gradient(3px 3px at 650px 480px, #ffffff, transparent),
     radial-gradient(3px 3px at 780px 370px, #ffffff, transparent),
     radial-gradient(3px 3px at 890px 420px, #ffffff, transparent),
    
-  
-  
     
     radial-gradient(4px 4px at 800px 560px, #ffffff, transparent),
     radial-gradient(4px 4px at 950px 640px, #ffffff, transparent);
@@ -78,7 +74,9 @@ body::after {
     radial-gradient(1px 1px at 110px 190px, #ffffffcc, transparent),
     radial-gradient(1px 1px at 200px 50px, #ffffffcc, transparent),
     radial-gradient(1px 1px at 310px 230px, #ffffffcc, transparent),
-    
+    radial-gradient(1px 1px at 420px 120px, #ffffffcc, transparent),
+    radial-gradient(1px 1px at 530px 280px, #ffffffcc, transparent),
+    radial-gradient(1px 1px at 660px 70px, #ffffffcc, transparent),
     radial-gradient(1px 1px at 750px 200px, #ffffffcc, transparent),
     radial-gradient(1px 1px at 880px 130px, #ffffffcc, transparent),
     radial-gradient(1px 1px at 980px 260px, #ffffffcc, transparent),
@@ -185,7 +183,7 @@ body::after {
 }
 
 
-
+/* ---------- STATICKÁ TLAČÍTKA (JMÉNA + TŘÍDA) ---------- */
 .btn-static {
   background: transparent;
   border: 2px solid #ff00c8;
@@ -225,7 +223,7 @@ body::after {
   }
 }
 
-
+/* ---------- KONTEJNER PRO TLAČÍTKA ---------- */
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -391,7 +389,7 @@ body::after {
   text-shadow: 0 0 10px #ff00c8;
 }
 
-
+/* ---------- O HŘE STRÁNKA ---------- */
 .about-content {
   display: flex;
   flex-direction: column;
@@ -444,7 +442,6 @@ body::after {
     font-size: 2.2rem;
     letter-spacing: 6px;
   }
-
   .game-header {
     font-size: 0.75rem;
     flex-direction: column;
