@@ -36,27 +36,11 @@ body::before {
   z-index: 0;
   pointer-events: none;
  
-  background-image: 
-   
-    radial-gradient(2px 2px at 20px 60px, #ffffff, transparent),
-    radial-gradient(2px 2px at 70px 140px, #ffffff, transparent),
-    radial-gradient(2px 2px at 130px 30px, #ffffff, transparent),
-    radial-gradient(2px 2px at 190px 210px, #ffffff, transparent),
-    radial-gradient(2px 2px at 270px 90px, #ffffff, transparent),
-    radial-gradient(2px 2px at 340px 170px, #ffffff, transparent),
-    
-    
-    
-    radial-gradient(3px 3px at 650px 480px, #ffffff, transparent),
-    radial-gradient(3px 3px at 780px 370px, #ffffff, transparent),
-    radial-gradient(3px 3px at 890px 420px, #ffffff, transparent),
-   
-    
-    radial-gradient(4px 4px at 800px 560px, #ffffff, transparent),
-    radial-gradient(4px 4px at 950px 640px, #ffffff, transparent);
+
   background-size: 100% 800px;
   animation: fallStars 6s linear infinite;
 }
+
 
 
 body::after {
@@ -70,23 +54,30 @@ body::after {
   z-index: 0;
   pointer-events: none;
   background-image: 
-    radial-gradient(1px 1px at 40px 80px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 110px 190px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 200px 50px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 310px 230px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 420px 120px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 530px 280px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 660px 70px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 750px 200px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 880px 130px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 980px 260px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 90px 500px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 220px 430px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 370px 590px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 510px 510px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 690px 630px, #ffffffcc, transparent),
-    radial-gradient(1px 1px at 830px 540px, #ffffffcc, transparent);
-  background-size: 100% 700px;
+    radial-gradient(2px 2px at 40px 0px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 110px 190px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 200px 50px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 310px 0px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 420px 120px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 530px 280px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 660px 70px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 750px 20px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 880px 130px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 980px 260px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1090px 300px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1220px 10px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1370px 90px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1510px 50px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1690px 60px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1830px 40px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1190px 300px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1120px 510px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1470px 590px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 1610px 750px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 990px 760px, #ffffffcc, transparent),
+    radial-gradient(2px 2px at 130px 740px, #ffffffcc, transparent);
+
+  background-size:  100%;
   animation: fallStars 4s linear infinite reverse;
   opacity: 0.7;
 }
@@ -183,7 +174,7 @@ body::after {
 }
 
 
-/* ---------- STATICKÁ TLAČÍTKA (JMÉNA + TŘÍDA) ---------- */
+
 .btn-static {
   background: transparent;
   border: 2px solid #ff00c8;
@@ -333,61 +324,8 @@ body::after {
 }
 
 
-.game-window {
-  max-width: 800px;
-  width: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  border: 2px solid #ff00c8;
-  box-shadow: 0 0 30px #ff00c8aa, inset 0 0 20px #ff00c833;
-  border-radius: 6px;
-  overflow: hidden;
-}
 
-.game-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  background: rgba(255, 0, 200, 0.1);
-  border-bottom: 1px solid #ff00c880;
-  font-weight: bold;
-  letter-spacing: 2px;
-  font-size: 0.9rem;
-}
 
-.game-status {
-  color: #00ffc3;
-  text-shadow: 0 0 8px #00ffc3;
-  animation: flicker 1.5s infinite alternate;
-}
-
-.game-container {
-  padding: 20px;
-  min-height: 400px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.game-placeholder {
-  width: 100%;
-  height: 300px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed #ff00c866;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.game-message {
-  color: #fff;
-  font-size: 1.5rem;
-  letter-spacing: 3px;
-  text-shadow: 0 0 10px #ff00c8;
-}
 
 /* ---------- O HŘE STRÁNKA ---------- */
 .about-content {
