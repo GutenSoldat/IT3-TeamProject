@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About Game</title>
+    <link rel="stylesheet" href="static/styles/style.css" />
+</head>
+<body>
+
+    <nav class="navbar">
+        <ul>
+            <li><a href="index.html">HOME</a></li>
+            <li><a href="#">ABOUT GAME</a></li>
+            <li class="logo"><img src="static/images/2c83e0e75e94d6ebbc9fee565717c241.png" alt=""></li>
+        </ul>
+    </nav>
+
+    <div class="categor">
+        <div class="stars"></div>
+        <h3>Categories</h3>
+        <ul>
+            <li><a href="#">Boosters</a></li>
+            <li><a href="#">Modes</a></li>
+            <li><a href="#">AI mode</a></li>
+        </ul>
+    </div>
+
+    <header class="header">
+        <div class="header-cont">
+            <h1>About Game</h1>
+  
+            </div>
+        </div>
+    </header>
+
+    
+
+    <footer class="foot">
+        <p>&copy;2026 AndArtGame . Dont contact us.</p>
+    </footer>
+
+    <script>
+        document.addEventListener("mousemove", (e) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 10;
+            const y = (e.clientY / window.innerHeight - 0.5) * 10;
+            document.querySelectorAll(".categor, .navbar")
+                .forEach(el => {
+                    el.style.transform = `translate(${x}px, ${y}px)`;
+                });
+        });
+    </script>
+
+</body>
+</html>

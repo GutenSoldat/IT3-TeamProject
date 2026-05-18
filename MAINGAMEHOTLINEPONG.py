@@ -1039,11 +1039,11 @@ while running:
                 # ховаємо підсвітку кнопок
                 last_input_was_keyboard = True
             else:
-                # навигация между Back / Exit клавишами A/D
-                if event.key == K_a:
+                # навігація між Back / Exit клавішами W/S, стрілками та A/D
+                if event.key in (K_w, K_UP, K_a):
                     pause_index = (pause_index - 1) % 2
                     last_input_was_keyboard = True
-                elif event.key == K_d:
+                elif event.key in (K_s, K_DOWN, K_d):
                     pause_index = (pause_index + 1) % 2
                     last_input_was_keyboard = True
                 # Enter — активировать выделенную кнопку
@@ -1128,10 +1128,10 @@ while running:
                                 pygame.mixer.music.set_volume(settings_volume)
                             except Exception:
                                 pass
-                    try:
-                        save_settings()
-                    except Exception:
-                        pass
+                        try:
+                            save_settings()
+                        except Exception:
+                            pass
                     else:
                         # циклічне перемикання режиму вікна вправо (прев'ю)
                         settings_window_mode_index = (settings_window_mode_index + 1) % len(window_modes)
