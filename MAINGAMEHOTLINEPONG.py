@@ -524,6 +524,7 @@ class Ball:
         self.speed_y = random.choice([-speed, speed])
         self.radius = 8
         self.effect_end_time = None  # таймер для восстановления скорости после стены
+        self.booster_end_time = None  # таймер для восстановления скорости после бустера
         self.last_hit = None  # "player" или "cpu"
 
     def _reflect_from_paddle(self, p, name):
@@ -565,7 +566,13 @@ class Ball:
         self.last_hit = name
 
     def move(self, paddles, boosters, walls):
-        # Восстановление стандартной скорости, если эффект закончился
+        # Восстановление стандартной скорости после бустера
+        if self.booster_end_time and pygame.time.get_ticks() >= self.booster_end_time:
+            self.speed_x = (self.initial_speed_x if self.speed_x > 0 else -self.initial_speed_x)
+            self.speed_y = (self.initial_speed_y if self.speed_y > 0 else -self.initial_speed_y)
+            self.booster_end_time = None
+
+        # Восстановление стандартной скорости, если эффект стены закончился
         if self.effect_end_time and pygame.time.get_ticks() >= self.effect_end_time:
             self.speed_x = (self.initial_speed_x if self.speed_x > 0 else -self.initial_speed_x)
             self.speed_y = (self.initial_speed_y if self.speed_y > 0 else -self.initial_speed_y)
@@ -577,9 +584,8 @@ class Ball:
         # Столкновения с ракетками (горизонтально) — корректируем позицию и отражаем по X
         for p, name in paddles:
             if self.rect.colliderect(p.rect):
-                # поместить мяч рядом с ракеткой по X в зависимости от направления
-                if self.speed_x > 0:
-                    # двигались вправо -> упёрлись в левую грань ракетки
+                # поместить мяч рядом с ракеткой по X в зависимости от положения мяча
+                if self.rect.centerx < p.rect.centerx:
                     self.rect.right = p.rect.left
                 else:
                     self.rect.left = p.rect.right
@@ -721,15 +727,17 @@ class Booster:
         if self.used:
             return
         self.used = True
+        now = pygame.time.get_ticks()
         if self.effect=="speed_up":
             ball.speed_x *= 1.5
             ball.speed_y *= 1.5
+            ball.booster_end_time = now + 12000
         elif self.effect=="slow":
             ball.speed_x *= 0.7
             ball.speed_y *= 0.7
+            ball.booster_end_time = now + 12000
         elif self.effect=="big_paddle":
             # увеличиваем ракетку на 25 пикселей на 5 секунд
-            now = pygame.time.get_ticks()
             duration_ms = 5000
             if last_hit == "player":
                 p = player_paddle
